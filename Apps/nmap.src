@@ -1,0 +1,58 @@
+//command: nmap
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(command_info("nmap_usage"))
+if not is_valid_ip(params[0]) then exit("nmap: invalid ip address")
+if not get_shell.host_computer.is_network_active then exit("nmap: can't connect. No internet access.")
+
+ipAddress = params[0]
+
+router = get_router( ipAddress )
+if router == null then
+	router = get_switch( ipAddress )
+end if
+
+if router == null then exit("nmap: ip address not found or is not Router/Switch")
+
+ports = null
+if typeof(router.used_ports) == "list" and typeof(router.device_ports) == "list" then
+	ports = router.used_ports + router.device_ports
+else if typeof(router.used_ports) == "list" then
+	ports = router.used_ports
+else if typeof(router.device_ports) == "list" then
+	ports = router.device_ports
+else
+	print("Error when getting ports, expected device_ports or used_ports to be list, got: ")
+	print("Device Ports: " + typeof(router.device_ports) + " " + router.device_ports)
+	print("Used Ports: " + typeof(router.used_ports) + " " + router.device_ports)
+	exit()
+end if
+
+info = "PORT STATE SERVICE VERSION LAN"
+print("Running nmap on " + params[0])
+print("Public IP: " + router.public_ip + "\nLocal IP: " + router.local_ip + "\n")
+
+for port in ports
+   service_info = router.port_info(port)
+   lan_ips = port.get_lan_ip
+   port_status = "open"
+
+   if port.is_closed then
+      port_status = "closed"
+   end if
+   info = info + "\n" + port.port_number + " " + port_status + " " + service_info + " " + lan_ips
+end for
+print(format_columns(info) + "\n")
+
+devices = router.devices_lan_ip
+devices.remove(devices.indexOf(router.local_ip)) //remove the router from the list
+devices_info = "LAN TYPE"
+for ip in devices
+	if typeof(get_router(ip)) != "null" then
+		devices_info = devices_info + "\n" + ip + " Router"
+	else if typeof(get_switch(ip)) != "null" then
+		devices_info = devices_info + "\n" + ip + " Switch"
+	else
+		devices_info = devices_info + "\n" + ip + " Computer"
+	end if
+end for
+
+print(format_columns(devices_info))

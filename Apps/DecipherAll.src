@@ -1,0 +1,34 @@
+//command: decipher
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then exit("Error: Missing crypto library")
+
+GetPassword = function(userPass)
+	if userPass.len != 2 then exit("decipher: " + file.path + " wrong syntax")
+	password = cryptools.decipher(userPass[0], userPass[1])
+	return password
+end function
+
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(command_info("decipher_usage"))
+
+origFile = params[0]
+file = get_shell.host_computer.File(origFile)
+if not file then exit("decipher: can't find " + origFile)
+if not file.has_permission("r") then exit("can't read file. Permission denied")
+if file.content.len == 0 then exit("decipher: no users found")
+
+lines = file.content.split("\n")
+password = null
+if lines.len == 1 then
+
+	userPass = lines[0].split(":")
+	password = GetPassword(userPass)
+	print(userPass[0] + ":" + password)
+else
+	print("Multiple users found.")
+	numLine = 1
+	for line in lines
+		userPass = line.split(":")
+		password = GetPassword(userPass)
+		print(userPass[0] + ":" + password)
+	end for
+end if

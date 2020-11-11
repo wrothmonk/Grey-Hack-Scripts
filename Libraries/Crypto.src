@@ -1,0 +1,8 @@
+require Computer
+//Crypto Library
+Crypto = include_lib("/lib/crypto.so")
+if not Crypto  then
+	current_path = Computer.current_path
+	Crypto = include_lib(current_path + "/crypto.so")
+end if
+if not Crypto then exit("<color=red>Crypto Error: Can't find crypto library in the /lib path or the current folder")

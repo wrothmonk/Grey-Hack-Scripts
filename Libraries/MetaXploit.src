@@ -1,0 +1,8 @@
+require Computer
+//MetaXploit Library
+MetaXploit = include_lib("/lib/metaxploit.so")
+if not MetaXploit  then
+	current_path = Computer.current_path
+	MetaXploit = include_lib(current_path + "/metaxploit.so")
+end if
+if not MetaXploit then exit("<color=red>MetaXploit Error: Can't find metaxploit library in the /lib path or the current folder")

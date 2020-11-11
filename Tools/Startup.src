@@ -1,0 +1,149 @@
+genPass = function(dict, len)
+  pass = ""
+  for i in range(1, len)
+    dict.shuffle
+    pass = pass + char(dict[0])
+  end for
+
+  return pass
+end function
+
+genPassword = function()
+  dict = range(48, 57) + range(65, 90) + range(97, 122) //Alpha-Numeric
+  return genPass(dict, 15)
+end function
+
+genSecure = function()
+  //Characters, numbers, and symbols. Excludes qoute symbol since that just gets complicated.
+  dict = [33] + range(35, 126)
+  return genPass(dict, 30)
+end function
+
+main = function()
+  Shell = get_shell("root", "1234")
+  while typeof(Shell) != "shell"
+    login = user_input("Root password: ", true)
+    Shell = get_shell("root", login)
+    if typeof(Shell) != "shell" then
+      print("<color=red>Incorrect Password</color>")
+      wait(0.5)
+      clear_screen
+    end if
+  end while
+  Computer = Shell.host_computer
+
+  //Chmod the entire file system
+  print("Chmodding file system...")
+  root = Computer.File("/")
+  root.chmod("o-rwx", true)
+  root.chmod("u-rwx", true)
+  root.chmod("g-rwx", true)
+  root.set_owner("root", true)
+  root.set_group("root", true)
+
+  //Find the default user
+  print("Clearing Desktop...")
+  user = ""
+  home_path = ""
+  homes = Computer.File("/home").get_folders
+  for home in homes
+    if home.name != "guest" then
+      user = home.name
+      home_path = home.path
+
+      //Clear out desktop except for Gift.txt
+      for folder in home.get_folders
+        if folder.name == "Desktop" then
+            for file in folder.get_files
+              if file.name != "Gift.txt" then
+                file.delete
+              end if
+            end for
+          break
+        end if
+      end for
+
+      break
+    end if
+  end for
+
+  //Remove root groups from user
+  print("Removing groups from: <b>" + user + "</b>...")
+  Computer.delete_group(user, "root") //Root group
+  Computer.delete_group(user, user) //User group
+
+  //change passwords
+  print("Changing passswords...")
+  root_pass = genPassword()
+  user_pass = genPassword()
+  success = Computer.change_password("root", root_pass)
+  if not success then
+    exit("Error when changing root password to: " + root_pass)
+  else
+    print("Password changed for <b>root</b>")
+  end if
+  success = Computer.change_password(user, user_pass)
+  if not success then
+    exit("Error when changing root password to: " + root_pass)
+  else
+    print("Password changed for <b>" + user + "</b>")
+  end if
+
+  //Create root login script
+  print("Creating login script...")
+  token = genSecure()
+  desktop_path = home_path + "/Desktop"
+  Computer.touch(desktop_path, "login.src")
+  src = Computer.File(desktop_path + "/login.src")
+  //A simple if statement checking user input against the generated token
+  src.set_content("input = user_input(""Password: "", true)\nif input == """ + token + """ then\nget_shell(""root"", """ + root_pass + """).start_terminal\nend if")
+  print("Building...")
+  print(Shell.build(desktop_path + "/login.src", desktop_path))
+  src.delete //Remove source file, would be massive security issue otherwise
+  //chmod the compiled program
+  program = Computer.File(desktop_path + "/login")
+  program.chmod("o-rwx")
+  program.chmod("u-rwx")
+  program.chmod("u+x")  //set so only execution by user is possible
+  program.chmod("g-rwx")
+  program.set_owner(user)
+  //chmod+chown Terminal.exe to allow launching of program
+  terminal = Computer.File("/usr/bin/Terminal.exe")
+  terminal.set_owner(user)
+  terminal.chmod("u+x")
+  print("Your login token is: <b>" + token + "</b>")
+  user_input("Press enter once you have saved the token")
+
+
+  //Connect to internet
+  print("\nConnecting to internet...")
+  gift = Computer.File("/home/" + user + "/Desktop/Gift.txt")
+  if typeof(gift) != "null" then
+    gift_text = gift.content.split("\n")
+    gift.delete
+
+    bssid = gift_text[3]
+    essid = gift_text[4]
+    wifi_pass = gift_text[5][10:]
+    device = Computer.network_devices.split(" ")[0]
+    print("Connecting <b>" + device + "</b> to <b>" + essid + "</b> with password: <b>" + wifi_pass + "</b>")
+    print("BSSID: <b>" + bssid + "</b>")
+
+    success = Computer.connect_wifi(device, bssid, essid, wifi_pass)
+    if success then
+      print("Connection: <color=green>Success!</color>")
+    else
+      print("Connection: <color=red>Failed!</color>")
+    end if
+  else
+    print("<color=red>Could not find Gift.txt!</color>")
+    //Automated airmon and aircrack?
+  end if
+
+  print("\nConfiguration complete!")
+
+  Shell.start_terminal // Exit to root shell
+
+end function
+
+main()

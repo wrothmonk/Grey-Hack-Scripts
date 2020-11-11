@@ -1,0 +1,9 @@
+computer = get_shell.host_computer
+root = computer.File("/root/Config/Bank.txt")
+if root then print(root.content)
+home = computer.File("/home")
+users = home.get_folders()
+for user in users
+	bank = computer.File(user.path + "/Config/Bank.txt")
+	if bank then print(bank.content)
+end for

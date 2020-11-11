@@ -1,0 +1,35 @@
+Computer = get_shell.host_computer
+root = Computer.File("/")
+terminal = Computer.File("/usr/bin/Terminal.exe")
+login = ""
+user = ""
+
+for home in Computer.File("/home").get_folders
+  if home.name != "guest" and home.name != "root" then
+    user = home.name
+    login = Computer.File(home.path + "/Desktop/login")
+    break
+  end if
+end for
+
+while true
+  clear_screen
+
+  //Recursive root setting
+	root.chmod("o-rwx",true)
+	root.chmod("u-rwx",true)
+	root.chmod("g-rwx",true)
+	root.set_group("root",true)
+	root.set_owner("root",true)
+
+  login.set_owner(user)
+  login.set_group(user)
+  login.chmod("u+x")
+
+  terminal.set_owner(user)
+  terminal.set_group(user)
+  terminal.chmod("u+x")
+
+	print(current_date + " Chmodded")
+	wait(1)
+end while
