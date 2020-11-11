@@ -278,6 +278,21 @@ UserOptions.save["func"] = function()
   selfCompile()
 end function
 
+//Searches through PASSWORDS for full or partial matches
+searchPasswords = function(name)
+  results = []
+  for name in PASSWORDS.indexes
+    if name == selection then
+      //return single result since it's an exact match
+      results = [name]
+      break
+    else if typeof(name.indexOf(selection)) != "null" then //simple match
+      results.push(name)
+    end if
+  end for
+  return results
+end function
+
 //Not sure why delete comes up as a keyword, capitalized to avoid
 UserOptions["Delete"] = {"enabled":PASSWORDS.len > 0, "name":"Delete an entry"}
 UserOptions.Delete["func"] = function()
@@ -324,16 +339,7 @@ UserOptions.view["func"] = function()
   else if selection == "3" then
     view(both)
   else
-    results = []
-    for name in PASSWORDS.indexes
-      if name == selection then
-        //return single result since it's an exact match
-        results = [name]
-        break
-      else if typeof(name.indexOf(selection)) != "null" then //simple match
-        results.push(name)
-      end if
-    end for
+    results = searchPasswords(name)
 
     if results.len == 1 then //one exact match, or only a single simple match
       print(name + ": " + PASSWORDS[selection])
