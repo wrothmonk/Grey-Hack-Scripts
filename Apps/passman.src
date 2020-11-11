@@ -1,0 +1,446 @@
+PASSWORDS = {}
+TOKEN = ""
+ROOT = ""
+ENABLE_REMOTE = false
+
+//Only edit past this point
+Shell = get_shell
+Computer = Shell.host_computer
+
+
+
+//Remote access functions
+
+//Function for inserting into other programs to run passman remotely
+runPassman = function(shell, pass_name)
+  token = ""
+  pad_str = ""
+  pad = []
+  //generate pad
+  for i in range(1, 15) //password length
+    num = floor((rnd * 65535) + 0.5) //integer between 0 and 65535
+    pad_str = pad_str + num + ":"
+    pad.push(num)
+  end for
+  pad_str = pad_str[:pad_str.len-1] //remove extra ":" at end
+
+  //run passman
+  args = token + " " + pad_str + " " + pass_name
+  shell.launch("/bin/passman", args)
+
+  //Retrieve and delete output file
+  file = shell.host_computer.File("/home/guest/passman.txt")
+  output = file.content
+  //send delete command to passman to remove file
+  shell.launch("/bin/passman", token + " DELETE")
+
+  //decrypt content
+  decrypted = ""
+  for i in range(0, output.len - 1)
+  	num = output[i].code
+  	num = num - 1 //move to 0 - 65535 range
+  	num = num - pad[i] // remove pad character
+  	if num < 0 then
+  		num = num + 65535 //undo modulus
+  	end if
+  	num = num + 1 //move back to 1 - 65536 range
+  	decrypted = decrypted + char(num)
+  end for
+
+  if decrypted != "null" then //"null" means there is no password saved under pass_name
+    return decrypted
+  end if
+end function
+
+//Responding side of runPassman function
+remoteCall(pad_str, pass_name)
+  if not Computer.File("/home/guest").has_permission("w") then //not root
+    root = get_shell("root", ROOT)
+    root.launch("/bin/passman", TOKEN + " " + pad_str + " " + pass_name) //re-launch as root
+  end if
+
+  if pad_str == "DELETE" then //delete command called
+    file = Computer.File("/home/guest/passman.txt")
+    if typeof(file) != "null" then
+      file.delete
+    end if
+  end if
+
+  //get password
+  pass = "null" //No result str
+  if ENABLE_REMOTE and PASSWORDS.hasIndex(pass_name) then
+    pass = PASSWORDS[pass_name]
+  end if
+
+  //encrypt password
+  encrypted = ""
+  pad = pad_str.split(":")
+  for i in range(0, pad.len - 1)
+    pad[i] = to_int(pad[i]) // convert number strings to ints
+  end for
+  for i in range(0, pass.len - 1)
+    num = pass[i].code - 1 //move code to be between 0 and 65535
+    num = (num + pad[i]) % 65536 //encrypt with pad character
+    num = num + 1 //Put back into 1 - 65536 range
+    encrypted = encrypted + char(num)
+  end for
+
+  //copy to guest access file
+  Computer.touch("/home/guest/passman.txt")
+  file = Computer.File("/home/guest/passman.txt")
+  //secure the file
+  file.chmod("o-rwx")
+  file.chmod("u-rwx")
+  file.chmod("g-rwx")
+
+  file.set_content(encrypted)
+  //make sure file will be readable
+  file.chmod("u+r")
+  file.set_owner("guest")
+  exit()
+end function
+
+
+
+//Password generation functions
+
+genPass = function(dict, len)
+  pass = ""
+  for i in range(1, len)
+    dict.shuffle
+    pass = pass + char(dict[0])
+  end for
+
+  return pass
+end function
+
+genPassword = function()
+  dict = range(48, 57) + range(65, 90) + range(97, 122) //Alpha-Numeric
+  return genPass(dict, 15)
+end function
+
+genToken = function()
+  //Characters, numbers, and symbols. Excludes qoute symbol since that just gets complicated.
+  dict = [33] + range(35, 126)
+  return genPass(dict, 30)
+end function
+
+
+
+//Compiling functions
+
+joinLines = function(lines)
+  str = ""
+  for line in lines
+    str = str + line + "\n"
+  end for
+  str = str[:str.len - 1] //remove extra newline at end
+  return str
+end function
+
+//Finds the start and end lines of the runPassman function in a given src str
+findPassmanFunction(src)
+  lines = src.split("\n")
+  func_start = -1
+  func_end = -1
+  for i in range(0, lines.len)
+    if lines[i].indexOf("runPassman = function(shell, pass_name)") == 0 then
+      func_start = i
+    else if func_start > -1 and lines[i].indexOf("end function") == 0 then
+      func_end = i
+      break
+    end if
+  end for
+  return [func_start, func_end]
+end function
+
+//overwrite runPassman function in src with copy from own src
+precompile = function(src)
+  indexes = findPassmanFunction(src)
+  pre_func = lines[:indexes[0]]
+  post_func = lines[indexes[1] - 1:] //-1 to include "end function" line
+
+  self_src = getOwnSource().content
+  indexes = findPassmanFunction(self_src)
+  lines = self_src.split("\n")
+  func_lines = lines[indexes[0]+1:indexes[1]]
+  func_lines[0] = char(9) + "token = """ + TOKEN + """" //insert passman token
+
+  return joinLines(pre_func + func_lines + post_func)
+end function
+
+//converts a str:str map into a single long string (used for saving passwords to binary)
+mapToStr = function(map)
+	output = "{"
+	for pair in map
+		if typeof(pair.key) != "string" or typeof(pair.value) != "string" then
+			print("<color=red>Error in mapToStr, expected str:str map")
+			print("<color=red>Input map:" + char(10))
+			exit(map)
+		end if
+
+		output = output + """" + pair.key + """:""" + pair.value + ""","
+	end for
+	output = output[:output.len - 1] //Remove trailing ","
+	output = output + "}"
+	return output
+end function
+
+//Get passman's own sourcecode
+getOwnSource = function()
+  file = Computer.File("/bin/passman.src")
+  if typeof(file) == "null" then
+    print("<b><color=red>Could not find source file for passman!!!")
+    input = user_input("Print out passwords for recovery? (y/n)\n")
+    if input == "y" or input == "yes" then
+      for pair in PASSWORDS
+        print(pair.key + ": " + pair.value)
+      end for
+    end if
+    exit("Failed to find src, any recent changes have been lost")
+  end if
+  return file
+end function
+
+selfCompile = function()
+  src_file = getOwnSource()
+  original = src_file.content
+  copy = original
+  //Replace TOKEN, PASSWORDS, ROOT, and ENABLE_REMOTE in copy with current values
+  replacements = {"PASSWORDS = {}":PASSWORDS, "TOKEN = """"":TOKEN, "ROOT = """"":ROOT, "ENABLE_REMOTE = false":ENABLE_REMOTE}
+  lines = copy.split("\n")
+
+  for line in lines
+    if replacements.hasIndex(line) then
+      index = line.lastIndexOf("= ")
+      //replace value
+      lines[lines.indexOf(line)] = line[:index+2] + replacements[line]
+      replacements.remove(line) //Remove index so loop can break once all matches made
+      if replacements.len == 0 then
+        break
+      end if
+    end if
+  end for
+
+  copy = joinLines(lines)
+  src_file.set_content(copy)
+  Shell.build(src_file.path, "/bin")
+  //change src file back as soon as possible to minimize possibility of sensitive information leaking
+  src_file.set_content(original)
+
+  new_version = Computer.file("/bin/" + src_file.name[:-4])
+  //Newly compiled executables get default permissions, need to chmod
+  new_version.chmod("o-rwx")
+  new_version.chmod("g-rwx")
+  new_version.chmod("u-rwx")
+end function
+
+
+
+//User Functions
+
+UserOptions = {}
+
+UserOptions["disableRemote"] = {"enabled":not ENABLE_REMOTE, "name":"Disable remote access"}
+UserOptions.disableRemote["func"] = function()
+  ENABLE_REMOTE = false
+  print("Remote access disabled, saving change...")
+  selfCompile()
+end function
+
+UserOptions["enableRemote"] = {"enabled":ENABLE_REMOTE, "name":"Enable remote access"}
+UserOptions.enableRemote["func"] = function()
+  ENABLE_REMOTE = true
+  print("Remote access enabled, saving change...")
+  selfCompile()
+end function
+
+UserOptions["save"] = {"enabled":true, "name":"Save a password"}
+UserOptions.save["func"] = function()
+  print("Input name and password")
+  print("Names that are valid IP addresses will have their password used as user:pass combinations for SSH-ing into")
+  passname = user_input("Name:")
+
+
+  done = false
+  while not done
+    pass1 = user_input("Password:", true)
+    pass2 = user_input("Confirm:", true)
+    if pass1 != pass2 then
+      print("<color=red>Password did not match! Try again.")
+    else
+      done = true
+    end if
+  end while
+
+  PASSWORDS[passname] = pass1
+  print("Saving changes...")
+  selfCompile()
+end function
+
+//Not sure why delete comes up as a keyword, capitalized to avoid
+UserOptions["Delete"] = {"enabled":PASSWORDS.len > 0, "name":"Delete an entry"}
+UserOptions.Delete["func"] = function()
+  //TODO: Write this function
+end function
+
+UserOptions["view"] = {"enabled":PASSWORDS.len > 0, "name":"View saved passwords"}
+UserOptions.view["func"] = function()
+  //Seperate password entries and IP entries
+  passwords = []
+  IPs = []
+  for pass in PASSWORDS.indexes
+    if is_valid_ip(pass) then
+      IPs.push(pass)
+    else
+      passwords.push(pass)
+    end if
+  end for
+
+  both = IPs + passwords
+
+  view = function(list)
+    for i in range(1, list.len)
+      print(i + ": " + list[i])
+    end for
+    selection = to_int(user_input("View password for: "))
+    if typeof(selection) == "number" and selection <= list.len then
+      index = selection - 1
+      print(list[index] + ": " + PASSWORDS[list[index]])
+      user_input("Press enter to continue")
+    end if
+  end function
+
+  print("Enter the entry name or one of the numbers for the following")
+  print("1: General Entries")
+  print("2: SSH Entries")
+  print("3: Both\n")
+
+  selection = user_input("View: ")
+  if selection == "1" then
+    view(passwords)
+  else if selection == "2" then
+    view(IPs)
+  else if selection == "3" then
+    view(both)
+  else
+    results = []
+    for name in PASSWORDS.indexes
+      if name == selection then
+        //return single result since it's an exact match
+        results = [name]
+        break
+      else if typeof(name.indexOf(selection)) != "null" then //simple match
+        results.push(name)
+      end if
+    end for
+
+    if results.len == 1 then //one exact match, or only a single simple match
+      print(name + ": " + PASSWORDS[selection])
+    else if resuls.len == 0 then
+      print("No matches found for: " + selection)
+    else
+      print("Multiple results found:\n")
+      view(results)
+    end if
+
+  end if
+end function
+
+passmanHasIPs = function() //Used for determining if ssh should be enabled
+  result = false
+  for name in PASSWORDS.indexes
+    if is_valid_ip(name) then
+      result = true
+      break
+    end if
+  end for
+
+  return result
+end function
+
+UserOptions["ssh"] = {"enabled":passmanHasIPs(), "name":"SSH into saved machine"}
+UserOptions.ssh["func"] = function()
+  //TODO: Write this function
+end function
+
+UserOptions["setup"] = {"enabled":passmanHasIPs(), "name":"SSH into a system and secure it"}
+UserOptions.secure["func"] = function()
+  //TODO: Write this function
+end function
+
+UserOptions["exit"] = {"enabled":true, "name":"Exit"}
+UserOptions.exit["func"] = function()
+  selfCompile() //Each function should save changes when necessary, this is just in case
+  exit()
+end function
+
+
+userLoop = function()
+  while true
+    clear_screen
+    print("<b>Passman v1.0.0</b>")
+
+    remote_str = ""
+    if ENABLE_REMOTE then
+      remote_str = "<color=green>ENABLED</color=green>"
+    else
+      remote_str = "<color=red>DISABLED</color=red>"
+    end if
+    print("Remote access: " + remote_str)
+
+    options = []
+    for option in UserOptions.indexes
+      if UserOptions[option].endabled then
+        options.push(option)
+        print(options.len + ": " + option.name)
+      end for
+    end for
+
+    print("\n")
+    selection = to_int(user_input("Run option: ")) - 1
+    if selection >= 0 and selection < options.len then
+      clear_screen
+      UserOptions[options[selection]].func()
+    end if
+  end while
+end function
+
+
+//Main function
+
+main = function()
+  if TOKEN == "" then
+
+    print("Changing root password...")
+    ROOT = genPassword()
+    result = Computer.change_password("root", ROOT)
+    if not result then
+      exit("passman must be initialized as root!")
+    else
+      print("Your new root password is: " + ROOT)
+    end if
+
+    TOKEN = genToken()
+    selfCompile() //compile with new token
+    print("Your passman token is: <b>" + token + "</b>")
+    print("Restarting...")
+
+    Shell.launch("/bin/passman", "/root") //Launch new version of self
+  else if params.len >= 1 and params[0] != TOKEN then //remote calling
+    if params[0] == TOKEN then
+      remoteCall(params[1], params[2])
+    else
+      exit()
+    end if
+  else //User calling
+    input = user_input("Password: ", true)
+    if input == TOKEN then
+      userLoop()
+    else
+      exit()
+    end if
+  end if
+end function
+
+main()
