@@ -329,12 +329,15 @@ end function
 //Not sure why delete comes up as a keyword, capitalized to avoid
 UserOptions["Delete"] = {"enabled":PASSWORDS.len > 0, "name":"Delete an entry"}
 UserOptions.Delete["func"] = function()
-  //TODO: Write this function
+  print("Search for entry by name to delete")
   name = user_input("Search: ")
   search = searchPasswords(name)
 
   remove = function(name)
     PASSWORDS.remove(name)
+    print("Removed entry for: <b>" + name)
+    print("Saving change...")
+    selfCompile()
   end function
 
   if search.results.len == 1 then
@@ -342,6 +345,25 @@ UserOptions.Delete["func"] = function()
       remove(search.results[0])
     else
       print("Found partial result <b>" + search.results[0] + "</b>")
+      confirm = user_input("Confirm deletion? (y/n)")
+      if confirm == "y" then
+        remove(search.results[0])
+      end if
+    end if
+  else if search.results.len == 0 then
+    print("No matches for <b>" + name + "</b> found")
+  else
+    print("Multiple partial results found, enter selection to delete or 0 to cancel")
+    for i in range(1, search.results.len)
+      print(i + ": " + search.results[i-1])
+    end for
+    selection = to_int(user_input("Selection:"))
+    if selection > 0 and selection <= search.results.len
+      remove(search.results[selection-1])
+    end if
+  end if
+end function
+
 //Checks if entry name is an IP (Could be normal IP or IP:Port pair)
 is_ip_entry = function(name)
   if is_valid_ip(name) or is_valid_ip(name.split(":")[0]) then
@@ -415,7 +437,6 @@ passmanHasIPs = function() //Used for determining if ssh should be enabled
   return false
 end function
 
-  return result
 //Get shell to ip by consulting passwords map
 connect = function(ip) //used in ssh and setup functions
   error = function(reason)
@@ -587,6 +608,7 @@ userLoop = function()
     if selection >= 0 and selection < options.len then
       clear_screen
       UserOptions[options[selection]].func()
+      wait(1)
     end if
   end while
 end function
