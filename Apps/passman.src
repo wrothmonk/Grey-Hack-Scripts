@@ -312,16 +312,18 @@ end function
 //Searches through PASSWORDS for full or partial matches
 searchPasswords = function(name)
   results = []
+  is_exact = false
   for name in PASSWORDS.indexes
     if name == selection then
       //return single result since it's an exact match
       results = [name]
+      is_exact = true
       break
     else if typeof(name.indexOf(selection)) != "null" then //simple match
       results.push(name)
     end if
   end for
-  return results
+  return {"results":results, "exact":is_exact}
 end function
 
 //Not sure why delete comes up as a keyword, capitalized to avoid
@@ -389,8 +391,8 @@ UserOptions.view["func"] = function()
   else if selection == "3" then
     view(both)
   else
-    results = searchPasswords(name)
-
+    search = searchPasswords(name)
+    results = search.results
     if results.len == 1 then //one exact match, or only a single simple match
       print(name + ": " + PASSWORDS[selection])
     else if results.len == 0 then
