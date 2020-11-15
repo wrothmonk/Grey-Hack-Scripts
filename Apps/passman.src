@@ -26,7 +26,10 @@ runPassman = function(shell, pass_name)
 
   //run passman
   args = token + " " + pad_str + " " + pass_name
-  shell.launch("/bin/passman", args)
+  result = shell.launch("/bin/passman", args)
+  if result == false then //shell.launch returns false on failure, null on success?
+    return false //allow error handling on other program
+  end if
 
   //Retrieve and delete output file
   file = shell.host_computer.File("/home/guest/passman.txt")
