@@ -237,6 +237,9 @@ selfCompile = function()
   new_version = Computer.file("/bin/" + src_file.name[:-4])
   //Newly compiled executables get default permissions, need to chmod
   new_version.chmod("o-rwx")
+  if ENABLE_REMOTE then
+    new_version.chmod("o+x") //Allow remote execution
+  end if
   new_version.chmod("g-rwx")
   new_version.chmod("u-rwx")
 end function
