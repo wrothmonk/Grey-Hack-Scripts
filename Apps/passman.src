@@ -414,6 +414,69 @@ passmanHasIPs = function() //Used for determining if ssh should be enabled
 end function
 
   return result
+//Get shell to ip by consulting passwords map
+connect = function(ip) //used in ssh and setup functions
+  error = function(reason)
+    print("<color=red>Unable to connect to <b>" + ip + "</b>:")
+  end function
+  port_num = 22
+
+  split = ip.split(":")
+  if split.len == 2 then //if given ip includes port
+    port_num = to_int(split)[1])
+    ip = split[0]
+  end if
+
+  if not is_valid_ip(ip)
+    error("Not a valid IP")
+    return false
+  else if not PASSWORDS.hasIndex(ip) then
+    error("No matching entry for IP")
+    return false
+  end if
+
+  pass = PASSWORDS[ip]
+  userpass = pass.split(":")
+  if userpass.len != 2 then
+    error("Invalid password entry format")
+    return false
+  end if
+
+  pinged = Shell.ping(ip)
+  if not pinged then
+    error("Could not find route")
+    return false
+  end if
+
+  remote_shell = Shell.connect_service(ip, port, userpass[0], userpass[1])
+  if not remote_shell then
+    router = get_router(ip)
+    ports = router.device_ports(ip)
+    for port in ports
+      if port.port_number == port_num then
+        service = router.port_info(port)
+        if servive == "ssh" then
+          //I'm not sure if a closed SSH port blocks connections, but this is here just in case it does, or does in the future
+          if port.is_closed then
+            error("port <b>" + port_num + "</b> is closed")
+            return false
+          else
+            error("Incorrect username or password")
+            return false
+          end if
+        else
+          error("No ssh service on port <b>" + port_num)
+          return false
+        end if
+        break
+      end if
+    end for
+
+    error("Port <b>" + port_num + "</b> is not forwarded")
+    return false
+  end if
+
+  return remote_shell
 end function
 
 UserOptions["ssh"] = {"enabled":passmanHasIPs(), "name":"SSH into saved machine"}
