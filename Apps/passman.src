@@ -268,8 +268,15 @@ UserOptions["save"] = {"enabled":true, "name":"Save a password"}
 UserOptions.save["func"] = function()
   print("Input name and password")
   print("Names that are valid IP addresses will have their password used as user:pass combinations for SSH-ing into")
-  passname = user_input("Name:")
+  pass_name = user_input("Name:")
 
+  if PASSWORDS.hasIndex(pass_name) then
+    print("<b>" + pass_name + " is already in passman!")
+    confirm = user_input("Overwrite? (y/n): ")
+    if not confirm == "y" then
+      return //exit saving function
+    end if
+  end if
 
   done = false
   while not done
@@ -282,7 +289,7 @@ UserOptions.save["func"] = function()
     end if
   end while
 
-  PASSWORDS[passname] = pass1
+  PASSWORDS[pass_name] = pass1
   print("Saving changes...")
   selfCompile()
 end function
@@ -306,6 +313,18 @@ end function
 UserOptions["Delete"] = {"enabled":PASSWORDS.len > 0, "name":"Delete an entry"}
 UserOptions.Delete["func"] = function()
   //TODO: Write this function
+  name = user_input("Search: ")
+  search = searchPasswords(name)
+
+  remove = function(name)
+    PASSWORDS.remove(name)
+  end function
+
+  if search.results.len == 1 then
+    if search.exact then
+      remove(search.results[0])
+    else
+      print("Found partial result <b>" + search.results[0] + "</b>")
 end function
 
 UserOptions["view"] = {"enabled":PASSWORDS.len > 0, "name":"View saved passwords"}
