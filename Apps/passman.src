@@ -250,14 +250,14 @@ end function
 
 UserOptions = {}
 
-UserOptions["disableRemote"] = {"enabled":not ENABLE_REMOTE, "name":"Disable remote access"}
+UserOptions["disableRemote"] = {"enabled":ENABLE_REMOTE, "name":"Disable remote access"}
 UserOptions.disableRemote["func"] = function()
   ENABLE_REMOTE = false
   print("Remote access disabled, saving change...")
   selfCompile()
 end function
 
-UserOptions["enableRemote"] = {"enabled":ENABLE_REMOTE, "name":"Enable remote access"}
+UserOptions["enableRemote"] = {"enabled":not ENABLE_REMOTE, "name":"Enable remote access"}
 UserOptions.enableRemote["func"] = function()
   ENABLE_REMOTE = true
   print("Remote access enabled, saving change...")
