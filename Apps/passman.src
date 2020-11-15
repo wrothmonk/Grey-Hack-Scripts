@@ -421,9 +421,49 @@ UserOptions.ssh["func"] = function()
   //TODO: Write this function
 end function
 
-UserOptions["setup"] = {"enabled":passmanHasIPs(), "name":"SSH into a system and secure it"}
+UserOptions["setup"] = {"enabled":true, "name":"SSH into a system and secure it"}
 UserOptions.secure["func"] = function()
-  //TODO: Write this function
+  print("Enter IP and root password to connect")
+  print("If ssh not on port 22 enter ip as <b>ip:port</b>")
+  connected = false
+  while not connected
+    //Attempt connection
+    ip = user_input("IP: ")
+    pass = user_input("Root pass: ", true)
+    PASSWORDS[ip] = "root:" + pass
+
+    remote_shell = connect(ip)
+    if not remote_shell then //connection error occured
+      PASSWORDS.remove(ip) //Remove incorrect entry
+      input = user_input("Try again? (y/n):")
+      if Input != "y" then
+        print("Canceled")
+        return //exit function
+      end if
+    else
+      connected = true
+    end if
+
+  end while
+
+  print("\nChmoding system...")
+  remote_computer = remote_shell.host_computer
+  root_folder = remote_computer.File("/")
+  root_folder.chmod("o-wrx", true)
+  root_folder.chmod("g-wrx", true)
+  root_folder.chmod("u-wrx", true)
+  root_folder.set_owner("root", true)
+  root_folder.set_group("root", true)
+
+  print("Generating new Root password...")
+  new_pass = genPassword()
+  remote_computer.change_password("root", new_pass)
+  PASSWORDS[ip] =  "root:" + new_pass
+
+  print("Saving password...")
+  selfCompile()
+
+  print("Done!")
 end function
 
 UserOptions["exit"] = {"enabled":true, "name":"Exit"}
