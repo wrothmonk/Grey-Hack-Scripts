@@ -469,14 +469,14 @@ end function
 main = function()
   if TOKEN == "" then
 
+    if not active_user == "root" then
+      exit("passman must be initialized as root!")
+    end if
+
     print("Changing root password...")
     ROOT = genPassword()
-    result = Computer.change_password("root", ROOT)
-    if not result then
-      exit("passman must be initialized as root!")
-    else
-      print("Your new root password is: " + ROOT)
-    end if
+    Computer.change_password("root", ROOT)
+    print("Your new root password is: " + ROOT)
 
     TOKEN = genToken()
     selfCompile() //compile with new token
@@ -491,6 +491,12 @@ main = function()
       exit()
     end if
   else //User calling
+
+    //Make sure passman was launched as root
+    if active_user != "root" then
+      exit("Passman must be launched as root or it will not funtion properly!")
+    end if
+
     input = user_input("Password: ", true)
     if input == TOKEN then
       userLoop()
