@@ -279,6 +279,40 @@ UserOptions.regenToken["func"] = function()
   end if
 end function
 
+UserOptions["compile"] = {"enabled":ENABLE_REMOTE, "name":"Compile a src file with passman token"}
+UserOptions.compile["func"] = function()
+  have_file = false
+  file_err = function(err_str, file)
+    print("<color=red><b>" + file.name + "</b> " + err_str)
+  end function
+
+  while not have_file
+    file_path = user_input("Path to file: ")
+    file = Computer.File(file_path)
+
+    if not file then
+      print("<color=red>Could not find " + file_path)
+    else if file.name[file.name.lastIndexOf("."):] != ".src" then
+      file_err("Is not a source file!")
+    else if not file.content then
+      file_err("Has no content!")
+    else if findPassmanFunction(file.content) == [-1,-1] then
+      file_err("Is missing a runPassman function!")
+    else
+      have_file = true
+    end if
+
+    input = user_input("Try again? (y/n): ")
+    if input != "y"
+      return //exit function
+    end if
+    clear_screen
+  end while
+
+  //TODO: write compiling of program
+
+end function
+
 UserOptions["save"] = {"enabled":true, "name":"Save a password"}
 UserOptions.save["func"] = function()
   print("Input name and password")
