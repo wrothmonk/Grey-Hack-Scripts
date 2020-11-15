@@ -386,7 +386,7 @@ UserOptions.view["func"] = function()
 
     if results.len == 1 then //one exact match, or only a single simple match
       print(name + ": " + PASSWORDS[selection])
-    else if resuls.len == 0 then
+    else if results.len == 0 then
       print("No matches found for: " + selection)
     else
       print("Multiple results found:\n")
