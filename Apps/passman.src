@@ -481,7 +481,30 @@ end function
 
 UserOptions["ssh"] = {"enabled":passmanHasIPs(), "name":"SSH into saved machine"}
 UserOptions.ssh["func"] = function()
-  //TODO: Write this function
+  print("Enter selection to connect or 0 to cancel")
+
+  IPs = []
+  i = 1
+  for entry in PASSWORDS.indexes
+    if is_ip_entry(entry) then
+      IPs.push(entry)
+      print(i + ": " + entry)
+      i = i + 1
+    end if
+  end for
+
+  selection = to_int(user_input("Select: "))
+  if selection > 0 and selection < IPs.len then
+    remote_shell = connect(IPs[selection-1])
+    if remote_shell then //successful connection
+      remote_shell.start_terminal //Launch connection
+      //after disconnect
+      input = user_input("Delete local logs of connection? (y/n)")
+      if input == "y" then
+        Shell.launch("/usr/bin/LogViewer.exe") //Let user manually delete logs
+      end if
+    end if
+  end if
 end function
 
 UserOptions["setup"] = {"enabled":true, "name":"SSH into a system and secure it"}
