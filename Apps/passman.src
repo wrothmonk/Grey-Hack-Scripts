@@ -340,6 +340,13 @@ UserOptions.Delete["func"] = function()
       remove(search.results[0])
     else
       print("Found partial result <b>" + search.results[0] + "</b>")
+//Checks if entry name is an IP (Could be normal IP or IP:Port pair)
+is_ip_entry = function(name)
+  if is_valid_ip(name) or is_valid_ip(name.split(":")[0]) then
+    return true
+  else
+    return false
+  end if
 end function
 
 UserOptions["view"] = {"enabled":PASSWORDS.len > 0, "name":"View saved passwords"}
@@ -348,7 +355,7 @@ UserOptions.view["func"] = function()
   passwords = []
   IPs = []
   for pass in PASSWORDS.indexes
-    if is_valid_ip(pass) then
+    if is_ip_entry(pass) then
       IPs.push(pass)
     else
       passwords.push(pass)
@@ -396,14 +403,15 @@ UserOptions.view["func"] = function()
   end if
 end function
 
+//Test if there are any IP address entries
 passmanHasIPs = function() //Used for determining if ssh should be enabled
-  result = false
   for name in PASSWORDS.indexes
-    if is_valid_ip(name) then
-      result = true
-      break
+    if is_ip_entry(name) then
+      return true
     end if
   end for
+  return false
+end function
 
   return result
 end function
