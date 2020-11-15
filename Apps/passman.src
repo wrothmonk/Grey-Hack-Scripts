@@ -264,6 +264,21 @@ UserOptions.enableRemote["func"] = function()
   selfCompile()
 end function
 
+UserOptions["regenToken"] = {"enabled":true, "name":"Change passman token"}
+UserOptions.regenToken["func"] = function()
+  print("WARNING: This will invalidate any access by programs previously precompiled by this passman instance!")
+  confirmation = user_input("Confirm change? (y/n): ")
+  if confirmation == "y" then
+    new_token = genToken()
+    TOKEN = new_token
+    print("Saving new token...")
+    selfCompile()
+    print("Your new login token is: <b>" + new_token)
+    user_input("Press enter to restart passman once you have saved your new token\n")
+    Shell.launch("/bin/passman", "/root")
+  end if
+end function
+
 UserOptions["save"] = {"enabled":true, "name":"Save a password"}
 UserOptions.save["func"] = function()
   print("Input name and password")
