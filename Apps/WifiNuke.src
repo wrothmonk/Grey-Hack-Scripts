@@ -10,33 +10,6 @@ Crypto.airmon("start", wifi_card)
 wifi_network = {"essid":"","bssid":"","pwr":0,"password":""}
 networks = {"list":[]}
 
-//Binary insertion sort of wifi_networks by pwr
-networks.insert = function(obj)
-	if self.list.len == 0 then
-		self.list.push(obj)
-		return
-	end if
-
-	start_index = 0
-	end_index = self.list.len
-
-	while start_index != end_index
-		index = floor((end_index - start_index)/2) + start_index
-		comp_obj = self.list[index]
-		if obj.pwr >= comp_obj.pwr then
-			start_index = index + 1
-		else
-			end_index = index
-		end if
-	end while
-
-	if start_index >= self.list.len then
-		self.list.push(obj)
-	else
-		self.list = self.list[:start_index] + [obj] + self.list[start_index:]
-	end if
-end function
-
 //Create list of wifi networks sorted by pwr
 for network in Computer.wifi_networks(wifi_card)
 	info = network.split(" ")
@@ -47,13 +20,15 @@ for network in Computer.wifi_networks(wifi_card)
 	networks.insert(wifi_obj)
 end for
 
+networks.sort("pwr")
+
 //Set up output file
 Computer.touch(Computer.current_path, "wifi.txt")
 output = Computer.File(Computer.current_path + "/wifi.txt")
 
 //aireplay for each network
-for index in range(networks.list.len-1) //Run from highest to lowest power
-  wifi = networks.list[index]
+for index in range(networks.len-1) //Run from highest to lowest power
+  wifi = networks[index]
   acks = ceil(300000/wifi.pwr)
 
   print("\nRunning aireplay on <b>" + wifi.essid + "</b> for " + acks + " ACKs")
