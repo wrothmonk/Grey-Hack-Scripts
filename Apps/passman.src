@@ -136,12 +136,7 @@ end function
 //Compiling functions
 
 joinLines = function(lines)
-  str = ""
-  for line in lines
-    str = str + line + "\n"
-  end for
-  str = str[:str.len - 1] //remove extra newline at end
-  return str
+  return lines.join("\n")
 end function
 
 //Finds the start and end lines of the runPassman function in a given src str
