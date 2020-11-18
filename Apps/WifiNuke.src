@@ -8,7 +8,7 @@ Crypto.airmon("start", wifi_card)
 
 //network objects
 wifi_network = {"essid":"","bssid":"","pwr":0,"password":""}
-networks = {"list":[]}
+networks = []
 
 //Create list of wifi networks sorted by pwr
 for network in Computer.wifi_networks(wifi_card)
@@ -17,19 +17,71 @@ for network in Computer.wifi_networks(wifi_card)
 	wifi_obj.bssid = info[0]
 	wifi_obj.pwr = to_int(info[1][:2])
 	wifi_obj.essid = info[2]
-	networks.insert(wifi_obj)
+	networks.push(wifi_obj)
 end for
 
 networks.sort("pwr")
-networks.reverse
+networks.reverse //highest to lowest pwr
 
 //Set up output file
-Computer.touch(Computer.current_path, "wifi.txt")
+created = Computer.touch(Computer.current_path, "wifi.txt")
 output = Computer.File(Computer.current_path + "/wifi.txt")
+content = "" //output var
+
+//function for undoing the results of format_columns
+unformat_columns = function(str)
+	//remove all char 160s except for one between columns
+	old = ""
+	while str != old //repeat until replace no longer gives new result
+		old = str
+		str = str.replace(char(160) + char(160), char(160))
+	end while
+	return str.replace(char(160), " ") //replace char 160 with normal space
+end function
+
+if typeof(created) == "string" and output then //already existing file
+	content = output.content
+
+	if content.len == 0 then //created file but had no results saved
+		return
+	else
+
+		//format_columns adds char 160 between columns, if isn't present this file was
+		//probably not output by this program
+		if content.indexOf(char(160)) == null then
+			exit("<color=red>wifi.txt has unexpected format!")
+		end if
+
+		content = unformat_columns(content)
+
+		lines = content.trim.split("\n")
+		for line in lines
+			bssid = line.split(" ")[0] //bssid is first column
+			//remove already solved entries
+			found = false
+			i = 0
+			while i < networks.len //can't use for loop since len can change during loop
+				wifi = networks[i]
+				if wifi.bssid == bssid then
+					found = true
+					networks.remove(i)
+					i = i - 1 //repeat this index
+				end if
+
+				i = i + 1
+			end while
+
+
+			if not found then //BSSID found that isn't part of the available networks
+				exit("<color=red>wifi.txt is from a different system or has an unexpected format!")
+			end if
+
+		end for
+	end if
+end if
 
 //aireplay for each network
-for wifi in networks //Run from highest to lowest power
-  wifi = networks[index]
+for wifi in networks
   acks = ceil(300000/wifi.pwr)
 
   print("\nRunning aireplay on <b>" + wifi.essid + "</b> for " + acks + " ACKs")
