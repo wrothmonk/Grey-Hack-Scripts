@@ -97,7 +97,7 @@ for wifi in networks
   end if
 
   //add to output
-  content = output.content
-  content = content + wifi.bssid + " " + wifi.essid + " " + wifi.password + char(10)
-  output.set_content(content)
+  content = unformat_columns(output.content).trim
+  content = content + "\n" + wifi.bssid + " " + wifi.essid + " " + wifi.password + char(10)
+  output.set_content(format_columns(content))
 end for
