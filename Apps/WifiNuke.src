@@ -21,13 +21,14 @@ for network in Computer.wifi_networks(wifi_card)
 end for
 
 networks.sort("pwr")
+networks.reverse
 
 //Set up output file
 Computer.touch(Computer.current_path, "wifi.txt")
 output = Computer.File(Computer.current_path + "/wifi.txt")
 
 //aireplay for each network
-for index in range(networks.len-1) //Run from highest to lowest power
+for wifi in networks //Run from highest to lowest power
   wifi = networks[index]
   acks = ceil(300000/wifi.pwr)
 
