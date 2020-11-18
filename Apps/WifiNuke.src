@@ -1,0 +1,75 @@
+Crypto = include_lib("/lib/crypto.so")
+if not Crypto then exit("Error: Missing Crypto library")
+
+Shell = get_shell
+Computer = Shell.host_computer
+wifi_card = Computer.network_devices.split(" ")[0]
+Crypto.airmon("start", wifi_card)
+
+//network objects
+wifi_network = {"essid":"","bssid":"","pwr":0,"password":""}
+networks = {"list":[]}
+
+//Binary insertion sort of wifi_networks by pwr
+networks.insert = function(obj)
+	if self.list.len == 0 then
+		self.list.push(obj)
+		return
+	end if
+
+	start_index = 0
+	end_index = self.list.len
+
+	while start_index != end_index
+		index = floor((end_index - start_index)/2) + start_index
+		comp_obj = self.list[index]
+		if obj.pwr >= comp_obj.pwr then
+			start_index = index + 1
+		else
+			end_index = index
+		end if
+	end while
+
+	if start_index >= self.list.len then
+		self.list.push(obj)
+	else
+		self.list = self.list[:start_index] + [obj] + self.list[start_index:]
+	end if
+end function
+
+//Create list of wifi networks sorted by pwr
+for network in Computer.wifi_networks(wifi_card)
+	info = network.split(" ")
+	wifi_obj = new wifi_network
+	wifi_obj.bssid = info[0]
+	wifi_obj.pwr = to_int(info[1][:2])
+	wifi_obj.essid = info[2]
+	networks.insert(wifi_obj)
+end for
+
+//Set up output file
+Computer.touch(Computer.current_path, "wifi.txt")
+output = Computer.File(Computer.current_path + "/wifi.txt")
+
+//aireplay for each network
+for index in range(networks.list.len-1) //Run from highest to lowest power
+  wifi = networks.list[index]
+  acks = ceil(300000/wifi.pwr)
+
+  print("\nRunning aireplay on <b>" + wifi.essid + "</b> for " + acks + " ACKs")
+  print("-"*50)
+
+  Crypto.aireplay(wifi.bssid, wifi.essid, acks)
+  results = Computer.File(Computer.current_path + "/file.cap")
+  wifi.password = Crypto.aircrack(results.path)
+  results.delete //delete for next round
+
+  if wifi.password == null then
+    exit("\n<color=red>Error when aircracking <b>" + wifi.essid + "</b>, used " + acks + " acks and did not get password")
+  end if
+
+  //add to output
+  content = output.content
+  content = content + wifi.bssid + " " + wifi.essid + " " + wifi.password + char(10)
+  output.set_content(content)
+end for
