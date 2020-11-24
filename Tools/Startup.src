@@ -22,6 +22,48 @@ genSecure = function()
   return genPass(dict, 30)
 end function
 
+getWifi = function(Shell, device)
+  Computer = Shell.host_computer
+  Crypto = include_lib("/lib/crypto.so")
+
+  wifi = {"essid":"","bssid":"","pwr":0,"password":""}
+
+  for network in Computer.wifi_networks(device)
+    info = network.split(" ")
+    pwr = to_int(info[1][:-1]) //2nd column should be pwr, :-1 lops of '%'
+    if pwr > wifi.pwr then
+      wifi.bssid = info[0]
+      wifi.pwr = pwr
+      wifi.essid = info[2]
+    end if
+  end for
+
+  acks = ceil(300000/wifi.pwr)
+  print("\nRunning aireplay on <b>" + wifi.essid + "</b> for " + acks + " ACKs")
+  print("-"*50)
+
+  Crypto.aireplay(wifi.bssid, wifi.essid, acks)
+  results = Computer.File(Computer.current_path + "/file.cap")
+  wifi.password = Crypto.aircrack(results.path)
+  results.delete
+
+  return wifi
+end function
+
+connectWifi = function(Shell, wifi, device)
+  print("Connecting <b>" + device + "</b> to <b>" + wifi.essid + "</b> with password: <b>" + wifi.password + "</b>")
+  print("BSSID: <b>" + wifi.bssid + "</b>")
+
+  success = Computer.connect_wifi(device, wifi.bssid, wifi.essid, wifi.password)
+  if success then
+    print("Connection: <color=green>Success!</color>")
+  else
+    print("Connection: <color=red>Failed!</color>")
+  end if
+
+  return success
+end function
+
 main = function()
   Shell = get_shell("root", "1234")
   while typeof(Shell) != "shell"
@@ -45,7 +87,7 @@ main = function()
   root.set_group("root", true)
 
   //Find the default user
-  print("Clearing Desktop...")
+  print("\nClearing Desktop...")
   user = ""
   home_path = ""
   homes = Computer.File("/home").get_folders
@@ -71,12 +113,12 @@ main = function()
   end for
 
   //Remove root groups from user
-  print("Removing groups from: <b>" + user + "</b>...")
+  print("\nRemoving groups from: <b>" + user + "</b>...")
   Computer.delete_group(user, "root") //Root group
   Computer.delete_group(user, user) //User group
 
   //change passwords
-  print("Changing passswords...")
+  print("\nChanging passswords...")
   root_pass = genPassword()
   user_pass = genPassword()
   success = Computer.change_password("root", root_pass)
@@ -93,7 +135,7 @@ main = function()
   end if
 
   //Create root login script
-  print("Creating login script...")
+  print("\nCreating login script...")
   token = genSecure()
   desktop_path = home_path + "/Desktop"
   Computer.touch(desktop_path, "login.src")
@@ -121,26 +163,31 @@ main = function()
   //Connect to internet
   print("\nConnecting to internet...")
   gift = Computer.File("/home/" + user + "/Desktop/Gift.txt")
+
+  device = Computer.network_devices.split(" ")[0]
+  connected = false
   if typeof(gift) != "null" then
     gift_text = gift.content.split("\n")
     gift.delete
 
-    bssid = gift_text[3]
-    essid = gift_text[4]
-    wifi_pass = gift_text[5][10:]
-    device = Computer.network_devices.split(" ")[0]
-    print("Connecting <b>" + device + "</b> to <b>" + essid + "</b> with password: <b>" + wifi_pass + "</b>")
-    print("BSSID: <b>" + bssid + "</b>")
+    wifi = {"essid":"","bssid":"","pwr":0,"password":""}
 
-    success = Computer.connect_wifi(device, bssid, essid, wifi_pass)
-    if success then
-      print("Connection: <color=green>Success!</color>")
-    else
-      print("Connection: <color=red>Failed!</color>")
-    end if
+    wifi.bssid = gift_text[3]
+    wifi.essid = gift_text[4]
+    wifi.password = gift_text[5][10:]
+
+    connected = connectWifi(Shell, wifi, device)
+
   else
     print("<color=red>Could not find Gift.txt!</color>")
-    //Automated airmon and aircrack?
+    connected = false
+  end if
+
+  if not connected then
+    print("\nInitiating automated wifi cracking.")
+    wifi = getWifi(Shell, device)
+    print(char(10))
+    connectWifi(Shell, wifi, device)
   end if
 
   print("\nConfiguration complete!")
