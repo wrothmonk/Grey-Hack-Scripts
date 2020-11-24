@@ -9,7 +9,7 @@ Computer = Shell.host_computer
 
 
 
-//Remote access functions
+//Inserted functions
 
 //Function for inserting into other programs to run passman remotely
 runPassman = function(shell, pass_name)
@@ -103,6 +103,12 @@ remoteCall(pad_str, pass_name)
   exit()
 end function
 
+//confirms program was run with a unique password assigned by passman
+confirmPass = function(password)
+  token = ""
+  if password != token then exit()
+end function
+
 
 
 //Password generation functions
@@ -139,13 +145,13 @@ joinLines = function(lines)
   return lines.join("\n")
 end function
 
-//Finds the start and end lines of the runPassman function in a given src str
-findPassmanFunction(src)
+//Generic function for finding functions in a given src string
+findFunction = function(src, first_line)
   lines = src.split("\n")
   func_start = -1
   func_end = -1
   for i in range(0, lines.len)
-    if lines[i].indexOf("runPassman = function(shell, pass_name)") == 0 then
+    if lines[i].indexOf(first_line) == 0 then
       func_start = i
     else if func_start > -1 and lines[i].indexOf("end function") == 0 then
       func_end = i
@@ -155,19 +161,59 @@ findPassmanFunction(src)
   return [func_start, func_end]
 end function
 
+//Finds the start and end lines of the runPassman function in a given src str
+findPassmanFunc(src)
+  return findFunction(src, "runPassman = function(shell, pass_name)")
+end function
+
+findPassConfFunc(src)
+  return findFunction("confirmPass = function(password)")
+end function
+
 //overwrite runPassman function in src with copy from own src
-precompile = function(src)
-  indexes = findPassmanFunction(src)
-  pre_func = lines[:indexes[0]]
-  post_func = lines[indexes[1] - 1:] //-1 to include "end function" line
-
+precompile = function(src, name)
+  result = src
   self_src = getOwnSource().content
-  indexes = findPassmanFunction(self_src)
-  lines = self_src.split("\n")
-  func_lines = lines[indexes[0]+1:indexes[1]]
-  func_lines[0] = char(9) + "token = """ + TOKEN + """" //insert passman token
 
-  return joinLines(pre_func + func_lines + post_func)
+  indexes = findPassmanFunc(src)
+  if indexes != [-1,-1] then
+    lines = result.split("\n")
+    pre_func = lines[:indexes[0]]
+    post_func = lines[indexes[1] - 1:] //-1 to include "end function" line
+
+    indexes = findPassmanFunc(self_src)
+    lines = self_src.split("\n")
+    func_lines = lines[indexes[0]+1:indexes[1]] //body of function
+    func_lines[0] = char(9) + "token = """ + TOKEN + """" //insert passman token
+
+    result = joinLines(pre_func + func_lines + post_func)
+  end if
+
+  indexes = findPassConfFunc(src)
+  if indexes != [-1,-1] then
+    lines = result.split("\n")
+    pre_func = lines[:indexes[0]]
+    post_func = lines[indexes[1] - 1:] //-1 to include "end function" line
+
+    indexes = findPassConfFunc(self_src)
+    lines = self_src.split("\n")
+    func_lines = lines[indexes[0]+1:indexes[1]] //body of function
+
+    //Generate and save program-specific password
+    pass = genToken()
+    if PASSWORDS.hasIndex(name) then
+      print("<color=red>Password for program <b>" + name + "<b> already saved in database!")
+      confirm = user_input("Replace with new password? (y/n): ")
+      if confirm != "y" then
+        pass = PASSWORDS[name]
+      end if
+    end if
+
+    func_lines[0] = char(9) + "token = """ + pass + """" //insert passman token
+    result = joinLines(pre_func + func_lines + post_func)
+  end if
+
+  return [result, pass]
 end function
 
 //converts a str:str map into a single long string (used for saving passwords to binary)
@@ -291,8 +337,8 @@ UserOptions.compile["func"] = function()
       file_err("Is not a source file!")
     else if not file.content then
       file_err("Has no content!")
-    else if findPassmanFunction(file.content) == [-1,-1] then
-      file_err("Is missing a runPassman function!")
+    else if findPassmanFunc(file.content) == [-1,-1] and findPassConfFunc == [-1,-1] then
+      file_err("Does not have any passman specific functions!")
     else
       have_file = true
     end if
