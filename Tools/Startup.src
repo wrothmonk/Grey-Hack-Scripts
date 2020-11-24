@@ -15,7 +15,10 @@ end function
 
 genSecure = function()
   //Characters, numbers, and symbols. Excludes qoute symbol since that just gets complicated.
-  dict = [33] + range(35, 126)
+  //Excludes quotes because that gets complicated to save to a program
+  //Excludes '<' and '>' as those can cause issues with copy/paste
+  //Excludes '\' as it is an escape character for newlines and tabs
+  dict = [33] + range(35, 59) + [61] + range(63, 91) + range(93, 126)
   return genPass(dict, 30)
 end function
 
