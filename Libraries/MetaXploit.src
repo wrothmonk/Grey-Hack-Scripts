@@ -1,4 +1,4 @@
-require Computer
+import Computer
 //MetaXploit Library
 MetaXploit = include_lib("/lib/metaxploit.so")
 if not MetaXploit  then

@@ -1,5 +1,5 @@
-require Computer
-require MetaXploit
+import Computer
+import MetaXploit
 //MetaLib Library
 MetaLib = {"lib":false, "lib_name":"", "version":"", "addresses":[], "vulns":[]}
 

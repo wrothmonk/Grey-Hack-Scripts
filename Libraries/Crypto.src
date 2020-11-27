@@ -1,4 +1,4 @@
-require Computer
+import Computer
 //Crypto Library
 Crypto = include_lib("/lib/crypto.so")
 if not Crypto  then

@@ -10,7 +10,7 @@ getDependencies = function(src)
 	libraries = []
 	lines = src.split("\n")
 	for line in lines
-		if line.indexOf("require ") == 0 then
+		if line.indexOf("import ") == 0 then
 			libraries.push(line[8:])
 		else
 			break
@@ -83,13 +83,13 @@ combineLines = function(lines)
 	return combined
 end function
 
-//Remove lines with "require" statements in the given src string
-removeRequires = function(src)
+//Remove lines with "import" statements in the given src string
+removeImports = function(src)
 	lines = src.split("\n")
 
 	start = 0
 	for line in lines
-		if line.indexOf("require ") == 0 then
+		if line.indexOf("import ") == 0 then
 			start = start + 1
 		else
 			break
@@ -99,18 +99,18 @@ removeRequires = function(src)
 	return combineLines(lines[start:])
 end function
 
-//Pre-compile a src string replacing require statements with the appropriate library
+//Pre-compile a src string replacing import statements with the appropriate library
 compile = function(src)
 	compiled_str = ""
 	if getDependencies(src).len > 0 then
 
 		for library in getLibraryOrder(src)
 			lib_src = getLibrary(library)
-			lib_src = removeRequires(lib_src)
+			lib_src = removeImports(lib_src)
 			compiled_str = compiled_str + lib_src
 		end for
 
-		compiled_str = compiled_str + removeRequires(src)
+		compiled_str = compiled_str + removeImports(src)
 	else
 		compiled_str = src
 		print("No dependencies detected")
