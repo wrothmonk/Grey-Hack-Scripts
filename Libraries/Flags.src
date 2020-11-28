@@ -1,0 +1,19 @@
+//Flags library
+Flags = {"set":{}, "named":{}}
+
+for i in range(0, params.len - 1)
+  if params[i][:2] == "--" //named var flag
+    then Flags.vars[params[i][3:]] = params[i+1]
+  else if params[i][:1] == "-" then
+    flag_str = params[i][1:] //get flag past '-'
+    if params[i].len > 2 //multiple combined flags
+      for flag in flag_str
+        Flags.set[flag] = true
+      end for
+    else if not params.hasIndex(i + 1) //single flag at end of params
+      Flags.set[flag_str] = true
+    else //flag which may or may not have var attached to it
+      Flags.set[flag_str] = params[i+1]
+    end if
+  end if
+end for
