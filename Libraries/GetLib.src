@@ -4,6 +4,10 @@ GetLib = {}
 
 GetLib.error = function(err, lib, paths)
   print("<color=red>" + err + "Could not find <b>" + lib + "</b>!")
+  print("<color=red> Following paths checked: ")
+  for path in paths
+    print("<color=red>   " + path)
+  end for
 end function
 
 GetLib.include = function(lib, error)
@@ -21,29 +25,6 @@ GetLib.include = function(lib, error)
       return lib_obj
     end if
   end for
-
-  //search entire system
-  //This may be neccesary on remotely called programs as
-  //current_path and program_path will give the path of the launching program
-  search = function(folder)
-    for file in folder.get_files
-      if file.name == lib then
-        lib_obj = include_lib(path)
-        if lib_obj != null then
-          return lib_obj
-        end if
-      end if
-    end for
-
-    for sub_folder in folder.get_folders
-      return search(sub_folder)
-    end for
-  end function
-
-  result = search(Computer.File("/"))
-  if result != null then
-    return result
-  end if
 
   self.error(error, lib, paths)
 end function
