@@ -8,11 +8,21 @@ MetaLib._err = function(error)
   Error.exit("[ERROR]", "MetaLib", error)
 end function
 
+MetaLib._log = function(log)
+  if self.lib then //initiated with library
+    library = "MetaLib (" + self.lib_name + "v" + self.lib_version + ")"
+    Error.log(0, "LOG", library, log)
+  else
+    Error.log(0, "LOG", "MetaLib", log)
+  end if
+end function
+
 //Init this MetaLib with the given target
 MetaLib.getLib = function(address, port)
   target_str = address
   if is_valid_ip(address) then
     if port != null then
+      self._log("Initiating with lib from <b>" + address + ":" + port)
       net_session = MetaXploit.net_use(address, port.to_int)
       target_str = address + ":" + port
     else
@@ -28,6 +38,8 @@ MetaLib.getLib = function(address, port)
     lib = MetaXploit.load(libFile.path)
   end if
 
+  self._log("Got <b>" + lib.lib_name + "v" + lib.version)
+
   self.lib = lib
   self.lib_name = lib.lib_name
   self.version = lib.version
@@ -35,6 +47,7 @@ end function
 
 //run a metaxploit scan on self
 MetaLib.scan = function()
+  self._log("Scanning for vulnerable addresses...")
   if not self.lib then self.err("Attempt to scan before getting library!")
   if not self.addresses then
     self.addresses = MetaXploit.scan(self.lib)
@@ -44,6 +57,7 @@ end function
 
 //Scan a specific memAddress in lib
 MetaLib.scan_address = function(memAddress)
+  self._log("Scanning <b>" + memAddress + "</b> for exploits")
   if not self.lib then self.err("Attempt to scan memory address before getting library!")
   return MetaXploit.scan_address(self.lib, memAddress)
 end function
@@ -51,6 +65,7 @@ end function
 
 //Get a map of all scan strings for all memory addresses
 MetaLib.full_scan = function()
+  self._log("Performing full scan...")
   memList = self.scan()
   results = {}
   for memAddress in memList
@@ -62,6 +77,7 @@ end function
 //Get a list of all vulnerability pairs (memAddress, unsecValue)
 MetaLib.get_vulns = function()
   if not self.vulns then
+    self._log("Parsing vulnerabilities...")
     scan = self.full_scan()
     for memAddress in scan.indexes
       scan_str = scan[memAddress].split(char(10))
@@ -72,6 +88,7 @@ MetaLib.get_vulns = function()
         end if
       end for
     end for
+    self._log("Found <b>" + self.vulns.len + "</b> vulnerabilities")
   end if
 
   return self.vulns
@@ -81,8 +98,10 @@ end function
 MetaLib.overflow = function(memAddress, unsecValue, optArgs)
   if not self.lib then self.err("Attempt to overflow before getting library!")
   if optArgs != null then
+    self._log("Performing overflow on <b>" + memAddress + ":" + unsecValue + "</b> with arg(s): " + optArgs)
     return self.lib.overflow(memAddress, unsecValue, optArgs)
   else
+    self._log("Performing overflow on <b>" + memAddress + ":" + unsecValue)
     return self.lib.overflow(memAddress, unsecValue)
   end if
 end function
