@@ -1,4 +1,5 @@
 import Computer
+import Flags
 //GetLib library
 GetLib = {}
 
@@ -8,11 +9,20 @@ GetLib.error = function(err, lib, paths)
   for path in paths
     print("<color=red>   " + path)
   end for
+  exit()
 end function
 
 GetLib.include = function(lib, error)
-  //Check common paths first
-  paths = []
+  //check flags for path in arguments
+  if Flags.named.hasIndex(lib) then
+    lib_obj = include_lib(Flags.named[lib])
+    if lib_obj != null then
+      return lib_obj
+    end if
+  end if
+
+  //Check common paths
+  paths = [] //paths from most likely to least likely to be found
   paths.push("/lib/" + lib)
   paths.push(Computer.current_path + "/" + lib)
   paths.push(Computer.current_path + "/lib/" + lib)
