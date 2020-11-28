@@ -1,3 +1,3 @@
 import GetLib
 //Crypto Library
-Crypto = GetLib.include("crypto.so", "Crypto Error:")
+Crypto = GetLib.include("crypto.so", "[ERROR] Crypto:")

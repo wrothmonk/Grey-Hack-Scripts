@@ -1,7 +1,12 @@
 import Computer
 import MetaXploit
+import Error
 //MetaLib Library
 MetaLib = {"lib":false, "lib_name":"", "version":"", "addresses":[], "vulns":[]}
+
+MetaLib._err = function(error)
+  Error.exit("[ERROR]", "MetaLib", error)
+end function
 
 //Init this MetaLib with the given target
 MetaLib.getLib = function(address, port)
@@ -14,12 +19,12 @@ MetaLib.getLib = function(address, port)
       net_session = MetaXploit.net_use(address)
     end if
 
-    if not net_session then exit("<color=red>MetaLib Error: can't connect to net session at: " + target_str)
+    if not net_session then self._err("Can't connect to net session at: " + target_str)
     lib = net_session.dump_lib
 
   else
     libFile = Computer.File(address)
-    if not libFile then exit("<color=red>MetaLib Error: IP or lib path invalid: " + target_str)
+    if not libFile then self.err("IP or lib path invalid: " + target_str)
     lib = MetaXploit.load(libFile.path)
   end if
 
@@ -30,7 +35,7 @@ end function
 
 //run a metaxploit scan on self
 MetaLib.scan = function()
-  if not self.lib then exit("<color=red>MetaLib Error: Attempt to scan before getting library!")
+  if not self.lib then self.err("Attempt to scan before getting library!")
   if not self.addresses then
     self.addresses = MetaXploit.scan(self.lib)
   end if
@@ -39,7 +44,7 @@ end function
 
 //Scan a specific memAddress in lib
 MetaLib.scan_address = function(memAddress)
-  if not self.lib then exit("<color=red>MetaLib Error: Attempt to scan memory address before getting library!")
+  if not self.lib then self.err("Attempt to scan memory address before getting library!")
   return MetaXploit.scan_address(self.lib, memAddress)
 end function
 
@@ -74,7 +79,7 @@ end function
 
 //overflow the given memAddress and unsecValue
 MetaLib.overflow = function(memAddress, unsecValue, optArgs)
-  if not self.lib then exit("<color=red>MetaLib Error: Attempt to overflow before getting library!")
+  if not self.lib then self.err("Attempt to overflow before getting library!")
   if optArgs != null then
     return self.lib.overflow(memAddress, unsecValue, optArgs)
   else

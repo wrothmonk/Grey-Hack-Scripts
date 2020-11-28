@@ -1,0 +1,58 @@
+import Flags
+//Standardized error/logging library
+Error = {"levels":{}, "log_level":1, "_set_level":false}
+Error._typeColor = {"ERROR":"red", "WARN":"yellow", "LOG":"none"}
+
+//initialization
+if Flags.named.hasIndex("log-level") then
+  Error.log_level = Flags.named.log-level
+  Error._set_level = true
+else if Flags.set.hasIndex("v") then //verbose flag
+  Error.log_level = 0
+  Error._set_level = true
+end if
+
+//constructs error string based on level
+Error._construct(type, library, err)
+  error_string = ""
+  //apply color based on level
+  color = self._typeColor[type]
+  if color != "none" then
+    error_string = error_string + "<color=" + color + ">"
+  end if
+
+  error_string = error_string + "[" + type + "] "
+  error_string = error_string + library + ": "
+  error_string = error_string + err
+
+  return error_string
+end function
+
+//dynamicaly set logging level if not overriden by flags
+Error.setLevel(level)
+  if not self._set_level then
+    self.log_level = level
+  end if
+end function
+
+//Report error and exit
+Error.exit = function(type, library, err)
+  exit(self._construct(type, library, err))
+end function
+
+//Log error with print and continue execution
+Error.log = function(level, type, library, err)
+  if level < self.log_level then //skip errors below logging level
+    return
+  end if
+  print(self._construct(type, library, err))
+end function
+
+//Log error and pause until user continues or interrupts function
+Error.pause = function(level, type, library, err)
+  if level < self.log_level then //skip errors below logging level
+    return
+  end if
+  print(self._construct(type, library, err))
+  user_input("Press enter to continue program" + char(10))
+end function
