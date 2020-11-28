@@ -1,0 +1,212 @@
+import Shell
+import Computer
+import Flags
+import Error
+//Payload library
+Payload = {"local_folder":"", "remote_folder":"", "script":"", "libs":{}}
+
+Payload._err = function(error)
+  Error.exit("ERROR", "Payload", error)
+end function
+
+Payload._log = function(level, log)
+  Error.log(level, "LOG", "Payload", log)
+end function
+
+//Payload folder management functions
+
+//Mass permission change used for unlock and lock functions
+Payload._change(symbol, user)
+  succes = []
+  folder = self.local_folder
+  succes.push(folder.chmod("u" + symbol + "wrx", true) == "")
+  succes.push(folder.chmod("g" + symbol + "wrx", true) == "")
+  succes.push(folder.chmod("o" + symbol + "wrx", true) == "")
+  succes.push(folder.set_owner(user, true) == "")
+  succes.push(folder.set_group(user, true) == "")
+  return succes.sum == 5
+end function
+
+//Locking and unlocking functions are just a small security measure and may not always be successful or necessary
+
+//opens all permissions for payload folder
+Payload.unlock = function()
+  self._log(0, "Unlocking payload folder...")
+  return self._change("+", "guest")
+end function
+
+//closes all permissions for payload folder
+Payload.lock = function()
+  self._log(0, "Locking payload folder...")
+  return return self._change("-", "root")
+end function
+
+//Deletes the local payload folder and its contents
+Payload.clear = function()
+  self.local_folder.delete
+  self._log(1, "Deleted " + self.local_folder.path)
+end function
+
+
+
+//Infection functions
+
+//selects the upload path for Payload.upload
+payload._selectUpload(remote_shell)
+  remote_computer = remote_shell.host_computer
+
+  //root home
+  if remote_computer.File("/root").has_permission("w")
+    return "/root"
+  end if
+
+  //all other home folders
+  home_folder = remote_computer.File("/home")
+  for home in home_folder.get_folders
+    if home.has_permission("w") then
+      return home.path
+    end if
+  end for
+
+  //recursive folder checking function
+  findWriteable = function(folder)
+    if folder.has_permission("w") then
+      return folder.path
+    end if
+
+    for sub_folder in folder.get_folders
+      result = findWriteable(sub_folder)
+      if result then //non-null result
+        return result
+      end if
+    end for
+
+  end function
+
+  //Any folder on the computer
+  return findWriteable(remote_computer.File("/"))
+end function
+
+//upload folder to remote computer, automatically placed in whatever directory it can be put in, checks /home folders first
+//returns the remote path where upload was put to, error string if failed to upload
+//remote_folder is also set by this
+//remote_shell can be ftpshell
+Payload.upload = function(shell, remote_shell)
+  _ip = remote_shell.host_computer.lan_ip
+  self._log(0, "Attempting to upload payload to <b>" + _ip)
+  dest_folder = self._selectUpload(remote_shell)
+  if dest_folder then
+    self._log(0, "Found writable folder at " + dest_folder)
+    success = shell.scp(self.local_folder.path, dest_folder, remote_shell)
+    if typeof(succes) == "string" then
+      Error.log(1, "WARN", "Payload", "Error when uploading payload to <b>" + -ip + "</b>: " + succes )
+      return success
+    else
+      self.remote_folder = dest_folder
+      self._log(1, "Uploaded payload to <b>" + _ip + "</b> in " + dest_folder)
+      return dest_folder
+    end if
+  end if
+end function
+
+//Runs the infection script inside the remote payload folder (script name set by 'script' attribute)
+//args should be a list of all space-seperated arguments, Payload adds its own on the end
+Payload.infect(remote_shell, args)
+  self._log(0, "Attempting to run infection script on <b>" + remote_shell.host_computer.local_ip)
+
+end function
+
+
+
+//Library initialization
+
+//helper function to get relative paths to local_folder
+Payload._localPathTo = function(file)
+
+end function
+
+//init function
+//script_name is relative path to infection script with payload_path as base
+//payload_path is optional so long as --payload flag is used instead
+Payload.init = function(script_name, payload_path)
+  self._log(0, "Attempting to initiate Payload library instance")
+  err_path = payload_path
+
+  //set local_folder
+  if payload_path == null then
+    if Flags.named.hasIndex("payload") then
+      self.local_folder = Computer.File(Flags.named.payload)
+      err_path = Flags.named.payload
+    else
+      self._err("Missing --payload flag!")
+    end if
+  else
+    self.local_folder = Compuer.File(payload_path)
+  end if
+
+  //check for proper folder
+  folder = self.local_folder
+  if folder == null then
+    self._err("Could not find payload folder at <b>" + err_path)
+  else if not folder.is_folder then
+    self._err("Payload needs to be a folder!")
+  end if
+
+  if script_name or Flags.named.hasIndex["payload-script"] then
+    if script_name then //path defined by function call
+      script_path = self.local_folder.path + "/" + script_name
+    else //path defined by flag
+      script_path = self.local_folder.path + "/" + Flags.named.payload-script
+    end if
+
+    script = Computer.File(script_path)
+    if not script then
+      self._err("Could not find infection script at: <b>" + script_path)
+    end if
+    self.script = script
+
+  else //search for binary at top level folder
+    binaries = []
+    for file in self.local_folder.path
+      if file.is_binary then
+        binaries.push(file)
+      end if
+    end for
+
+    if binaries.len == 1 then //only one binary file found at top level
+      self.script = binaries[0]
+      if Flags.set.hasIndex("v") then //verbose running
+        Error.log(0, "WARN", "Payload", "Infection script undefined, assuming <b>" + self.script.path + "</b> is infection script")
+      end if
+    else if binaries.len == 0 or binaries.len > 1 then
+      self._err("Could not find infection script!")
+    end if
+  end if
+
+  //check for library files
+  //recursive function for checking for library files
+  findLibs = function(folder, existing_libs)
+    //starting case
+    if folder == null then
+      folder = self.local_folder
+      existing_libs = {}
+    end if
+
+    //current folder contents
+    for file in folder.get_files
+      if file.is_binary and file.name[-3:] == ".so" then
+        existing_libs[file.name] = self._localPathTo(file.path)
+      end if
+    end for
+
+    //run on sub folders, will change existing_libs as it's passed by reference
+    for sub_folder in folder.get_folders
+      findLibs(sub_folder, existing_libs)
+    end for
+
+    return existing_libs //ending case
+  end function
+
+  self.libs = findLibs()
+  self.log(1, "Initiated Payload at <b>" + self.local_folder)
+end if
