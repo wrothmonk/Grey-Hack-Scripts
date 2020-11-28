@@ -1,0 +1,49 @@
+import Computer
+//GetLib library
+GetLib = {}
+
+GetLib.error = function(err, lib, paths)
+  print("<color=red>" + err + "Could not find <b>" + lib + "</b>!")
+end function
+
+GetLib.include = function(lib, error)
+  //Check common paths first
+  paths = []
+  paths.push("/lib/" + lib)
+  paths.push(Computer.current_path + "/" + lib)
+  paths.push(Computer.current_path + "/lib/" + lib)
+  paths.push(program_path + "/" + lib)
+  paths.push(program_path + "/lib/" + lib)
+
+  for path in paths
+    lib_obj = include_lib(path)
+    if lib_obj != null then
+      return lib_obj
+    end if
+  end for
+
+  //search entire system
+  //This may be neccesary on remotely called programs as
+  //current_path and program_path will give the path of the launching program
+  search = function(folder)
+    for file in folder.get_files
+      if file.name == lib then
+        lib_obj = include_lib(path)
+        if lib_obj != null then
+          return lib_obj
+        end if
+      end if
+    end for
+
+    for sub_folder in folder.get_folders
+      return search(sub_folder)
+    end for
+  end function
+
+  result = search(Computer.File("/"))
+  if result != null then
+    return result
+  end if
+
+  self.error(error, lib, paths)
+end function
