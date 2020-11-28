@@ -99,6 +99,32 @@ removeImports = function(src)
 	return combineLines(lines[start:])
 end function
 
+//compress a src by removing comments and unneeded whitespace
+compressSrc = function(src)
+	compressed = src
+	compressed = compressed.replace(char(9), "") //remove indents
+	lines = compressed.split(char(10))
+
+	empty_lines = [] //list of lines to completely remove
+	for i in lines.indexes
+		line = lines[i]
+		if line == "" then //line that was previously just a newline
+			empty_lines.push(i - empty_lines.len)
+		else if line.indexOf("//") == 0 then //line that is just a comment
+			empty_lines.push(i - empty_lines.len)
+		else if line.indexOf("//") != null then //line with comment
+			lines[i] = line[:line.lastIndexOf("//")] //remove comment
+		end if
+	end for
+
+	for i in empty_lines
+		lines.remove(i)
+	end for
+
+	compressed = lines.join(char(10))
+	return compressed
+end function
+
 //Pre-compile a src string replacing import statements with the appropriate library
 compile = function(src)
 	compiled_str = ""
@@ -115,6 +141,9 @@ compile = function(src)
 		compiled_str = src
 		print("No dependencies detected")
 	end if
+
+	compiled_str = compressSrc(compiled_str)
+
 	return compiled_str
 end function
 
