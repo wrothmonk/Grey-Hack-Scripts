@@ -1,0 +1,83 @@
+import Computer
+import MetaXploit
+//MetaLib Library
+MetaLib = {"lib":false, "lib_name":"", "version":"", "addresses":[], "vulns":[]}
+
+//Init this MetaLib with the given target
+MetaLib.getLib = function(address, port)
+	target_str = address
+	if is_valid_ip(address) then
+		if port != null then
+			net_session = MetaXploit.net_use(address, port.to_int)
+			target_str = address + ":" + port
+		else
+			net_session = MetaXploit.net_use(address)
+		end if
+
+		if not net_session then exit("<color=red>MetaLib Error: can't connect to net session at: " + target_str)
+		lib = net_session.dump_lib
+
+	else
+		libFile = Computer.File(address)
+		if not libFile then exit("<color=red>MetaLib Error: IP or lib path invalid: " + target_str)
+		lib = MetaXploit.load(libFile.path)
+	end if
+
+	self.lib = lib
+	self.lib_name = lib.lib_name
+	self.version = lib.version
+end function
+
+//run a metaxploit scan on self
+MetaLib.scan = function()
+	if not self.lib then exit("<color=red>MetaLib Error: Attempt to scan before getting library!")
+	if not self.addresses then
+		self.addresses = MetaXploit.scan(self.lib)
+	end if
+	return self.addresses
+end function
+
+//Scan a specific memAddress in lib
+MetaLib.scan_address = function(memAddress)
+	if not self.lib then exit("<color=red>MetaLib Error: Attempt to scan memory address before getting library!")
+	return MetaXploit.scan_address(self.lib, memAddress)
+end function
+
+
+//Get a map of all scan strings for all memory addresses
+MetaLib.full_scan = function()
+	memList = self.scan()
+	results = {}
+	for memAddress in memList
+		results[memAddress] = self.scan_address(memAddress)
+	end for
+	return results
+end function
+
+//Get a list of all vulnerability pairs (memAddress, unsecValue)
+MetaLib.get_vulns = function()
+	if not self.vulns then
+		scan = self.full_scan()
+		for memAddress in scan.indexes
+			scan_str = scan[memAddress].split(char(10))
+			for line in scan_str
+				if line.indexOf("Unsafe check:") != null then
+					unsec = line[line.indexOf("<b>")+3:line.indexOf("</b>")]
+					self.vulns.push({"memAddress":memAddress, "unsecValue":unsec})
+				end if
+			end for
+		end for
+	end if
+
+	return self.vulns
+end function
+
+//overflow the given memAddress and unsecValue
+MetaLib.overflow = function(memAddress, unsecValue, optArgs)
+	if not self.lib then exit("<color=red>MetaLib Error: Attempt to overflow before getting library!")
+	if optArgs != null then
+		return self.lib.overflow(memAddress, unsecValue, optArgs)
+	else
+		return self.lib.overflow(memAddress, unsecValue)
+	end if
+end function

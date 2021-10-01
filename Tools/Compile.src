@@ -1,0 +1,150 @@
+exit_str = "<b>Usage: "+program_path.split("/")[-1]+" [.src file path] [-v (opt, keep generated .src file)]"
+if params.len == 0 or params[0] == "-h" or params[0] == "--help" then exit(exit_str)
+
+Shell = get_shell
+Computer = Shell.host_computer
+
+
+//Get the list of required libraries for a given src string
+getDependencies = function(src)
+	libraries = []
+	lines = src.split("\n")
+	for line in lines
+		if line.indexOf("import ") == 0 then
+			libraries.push(line[7:])
+		else
+			break
+		end if
+	end for
+
+	return libraries
+end function
+
+//Get a library src file from its name
+getLibrary = function(library_name)
+	lib_path = current_path + "/lib/" + library_name + ".src"
+	library = Computer.File(lib_path)
+
+	if not library then
+		lib_path = "/lib/" + library_name + ".src"
+		library = Computer.File(lib_path)
+		if not library then exit("Missing library: " + library_name)
+	end if
+
+	if not library.has_permission("r") then exit("Could not read: " + lib_path + ", permission denied")
+
+	return library.get_content()
+end function
+
+
+//Get the list of libraries that should be loaded for a given src in order
+//loaded is current order of loaded libraries, used only for recursive calls
+//prev_libs is the list of libraries in this specific dependency chain, used only for recursive calls
+getLibraryOrder = function(src, loaded, prev_libs)
+	if not loaded then
+		loaded = []
+	end if
+	if not prev_libs then
+		prev_libs = []
+	end if
+
+	dependencies = getDependencies(src)
+	if dependencies.len > 0 then
+
+		for lib in getDependencies(src)
+			index = prev_libs.indexOf(lib)
+			if index != null then //lib already appeared in this dependency chain
+				exit_str = "Depency loop detected!\n"
+				//Accumulate dependency loop starting with first appearence of this lib
+				for lib in prev_libs[index:]
+					exit_str = exit_str + lib + " -> "
+				end for
+				exit_str = exit_str + prev_libs[index] //end with repeated lib to complete loop
+				exit(exit_str)
+			end if
+
+			if loaded.indexOf(lib) == null then
+				//Get load order of required libraries for lib and append to loaded list
+				loaded = getLibraryOrder(getLibrary(lib), loaded, prev_libs[0:].push(lib))
+				//Append lib to loaded list
+				loaded.push(lib)
+			end if
+		end for
+	end if
+	return loaded
+end function
+
+//Compile a list of strings into a single string with a newline char for each string
+combineLines = function(lines)
+	combined = ""
+	for line in lines
+		combined = combined + line + "\n"
+	end for
+	return combined
+end function
+
+//Remove lines with "require" statements in the given src string
+removeRequires = function(src)
+	lines = src.split("\n")
+
+	start = 0
+	for line in lines
+		if line.indexOf("import ") == 0 then
+			start = start + 1
+		else
+			break
+		end if
+	end for
+
+	return combineLines(lines[start:])
+end function
+
+//Pre-compile a src string replacing require statements with the appropriate library
+compile = function(src)
+	compiled_str = ""
+	if getDependencies(src).len > 0 then
+
+		for library in getLibraryOrder(src)
+			lib_src = getLibrary(library)
+			lib_src = removeRequires(lib_src)
+			compiled_str = compiled_str + lib_src
+		end for
+
+		compiled_str = compiled_str + removeRequires(src)
+	else
+		compiled_str = src
+		print("No dependencies detected")
+	end if
+	return compiled_str
+end function
+
+//Main Execution
+
+src = Computer.File(params[0])
+print("Reading source file")
+if not src then exit("Could not find file: " + params[0])
+if not src.has_permission("r") then exit("Could not read file: " + src.path + ", permission denied")
+
+src_name = src.name[:-4]
+src = src.get_content()
+print("Pre-compiling program")
+precompiled_src = compile(src)
+
+save_path = current_path + "/" + src_name + ".prc"
+src_file = Computer.File(save_path)
+if not src_file then
+	Computer.touch(current_path, src_name + ".prc")
+	src_file = Computer.File(save_path)
+	if not src_file then exit("Unable to create temporary source file at: " + save_path)
+end if
+src_file.set_content(precompiled_src)
+
+print("Building")
+print(Shell.build(save_path, current_path))
+
+if not params.hasIndex(1) or params[1] != "-v" then
+	print("Deleting temp source file")
+	src_file.delete()
+end if
+
+print("Done!")
