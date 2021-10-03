@@ -1,0 +1,61 @@
+FS = {"shell":false, "computer":false, "root_folder":false, "_level":false, "_all_files":false, "users":{"root":false, "guest":false}}
+
+
+FS.all_files = function(refresh)
+  if not refresh and self._all_files then return self._all_files
+  out = []
+  recurse = function(file)
+		out.push(file)
+		if file.is_folder then
+			for next in file.get_folders + file.get_files
+				recurse(next)
+			end for
+		end if
+	end function
+  recurse(self.root_folder)
+  self._all_files = out
+  return out
+end function
+
+FS.level = function()
+  if self.level then return self.level
+  all = self.get_all_files
+  if self._level then return self._level
+  all = self.all_files
+  self.level = 1 //level has been checked, but has no reasonable access
+  for file in all
+    if file.is_folder and file.has_permission("w") then
+      self._level = 2 //Has write access to one or more folders
+      break
+    end if
+  end for
+  is_root = true
+  for file in all
+    if not (file.has_permission("r") and file.has_permission("w") and file.has_permission("x")) then
+      is_root = false
+      break
+    end if
+  end for
+  if is_root then self._level = 3 //root access
+  return self._level
+end function
+
+FS.init = function(target)
+  if typeof(target) == "shell" then
+    self.shell = target
+    return self.init(target.host_computer)
+  else if typeof(target) == "computer" then
+    self.computer = target
+    return self.init(target.File("/"))
+  else if typeof(target) == "file" then
+    //get root folder
+    while target.name != "/"
+      target = target.parent
+    end while
+    self.root_folder = target
+
+    return self
+  else
+    return false
+  end if
+end function
