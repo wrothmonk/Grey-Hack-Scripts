@@ -4,7 +4,7 @@ import MetaXploit
 MetaLib = {"lib":false, "lib_name":"", "version":"", "addresses":[], "vulns":[]}
 
 //Init this MetaLib with the given target
-MetaLib.getLib = function(address, port)
+MetaLib.get_lib = function(address, port)
 	target_str = address
 	if is_valid_ip(address) then
 		if port != null then
