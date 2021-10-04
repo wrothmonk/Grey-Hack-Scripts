@@ -23,9 +23,15 @@ MetaLib.get_lib = function(address, port)
 		lib = MetaXploit.load(libFile.path)
 	end if
 
-	self.lib = lib
-	self.lib_name = lib.lib_name
-	self.version = lib.version
+	if lib then
+		self.lib = lib
+		self.lib_name = lib.lib_name
+		self.version = lib.version
+		return true
+	else
+		return false
+	end if
+	
 end function
 
 //run a metaxploit scan on self
