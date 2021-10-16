@@ -1,0 +1,46 @@
+add_time = function(date_str, minutes)
+  //Number of days per month, leap years calculated once current year extracted
+  DAY_COUNT = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+  //conver date_str to decimals
+  //[day, month, year, hours, minutes]
+  times = date_str[:-6].split("-") + date_str[-5:].split(":")
+  //convert from strings to actual values
+  for index in range(times.len-1)
+    times[index] = times[index].val
+  end for
+
+  //compensate for leap years
+  year = times[4]
+  if not year % 4 and (year % 100 or not year % 400) then
+    DAY_COUNT[1] = 29
+  end if
+
+  //perform addition
+  times[4] = times[4] + minutes //add minutes
+  if times[4] >= 60 then //gone past an hour
+    times[3] = times[3] + floor(times[4] / 60) //add hours
+    times[4] = times[4] % 60 //set minutes to remainder
+    if times[3] >= 24 then //gone past a day
+      times[0] = times[0] + floor(times[3] / 24) //add days
+      times[3] = times[3] % 24 //set hours to remainder
+      //following section would have to be complicated while loops to go past next month
+      if times[0] > DAY_COUNT[times[1]-1] then //if # of days past end of current month
+        times[0] = times[0] - DAY_COUNT[times[1]-1]
+        times[1] = times[1] + 1 //add a month
+        if times[1] > 12 then
+          times[2] = times[2] + 1 //add year
+          times[1] = times[1] - 12
+        end if
+      end if
+    end if
+  end if
+
+  //add zeroes to hour/minutes
+  if times[3] < 10 then times[3] = "0" + times[3]
+  if times[4] < 10 then times[4] = "0" + times[4]
+
+  output = times[:3].join("-") + " " + times[-2:].join(":")
+
+  return output
+end function
