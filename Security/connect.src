@@ -1,0 +1,39 @@
+//Program for ssh-ing to a server set up with the bundled encode/decode.src
+
+secret = {"user":"","pass":[],"ip":"","port":-1,"salt":[]} //connection info, set at compile
+
+conv_val_list = function(char_vals)
+  output = ""
+  for val in char_vals
+    output = output + char(val)
+  end for
+  return output
+end function
+
+//convert pass and salt to single string
+secret.pass = conv_val_list(secret.pass)
+secret.salt = conv_val_list(secret.salt)
+
+//calculate extra salt based on time of run
+date = current_date
+time = date[-5:].split(":") //get hours & minutes
+date = date[:-6].split("-") //get day, month, & year
+more_salt = time[0].val + time[1].val //hour + minutes
+for i in date[:2] //month and day
+  more_salt = more_salt + i.val - 1 //-1 to allow adding of zero, since day/months start at 1
+end for
+// bring more_salt to 8 bits and scramble bits
+more_salt = bitwise("<<", more_salt, 1) + round(rnd(more_salt+date[2].val))
+salt_mask = bitwise("<<", more_salt, 8) + more_salt
+more_salt = bitwise("^", salt_mask, rnd(more_salt))
+more_salt = char(more_salt) //convert to single character
+
+login_token = secret.pass + secret.salt + more_salt
+
+//Connect
+connection = get_shell.connect_service(secret.ip, secret.port, secret.user, login_token)
+if typeof(connection) != "shell" then
+  exit("<color=red>Error: " + str(connection))
+else
+  connection.start_terminal
+end if

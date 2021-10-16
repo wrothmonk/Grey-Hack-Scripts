@@ -1,0 +1,6 @@
+Decode = function(password)
+  secret = {"pass":[],"salt":[],"real_pass":""}
+  extra_salt = password[-1]
+
+  return output
+end function

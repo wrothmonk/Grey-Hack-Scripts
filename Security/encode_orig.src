@@ -1,0 +1,10 @@
+Encode = function(password)
+
+    DELAY = 15 //base time in seconds to wait after hashing to send to decode
+
+    //SHA-256
+
+    wait(DELAY*rnd) //delay a random amount of time after hashing to throw off current_date guessing
+
+    return output + password[0]
+end function
