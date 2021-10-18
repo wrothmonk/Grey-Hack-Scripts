@@ -22,10 +22,11 @@ more_salt = time[0].val + time[1].val //hour + minutes
 for i in date[:2] //month and day
   more_salt = more_salt + i.val - 1 //-1 to allow adding of zero, since day/months start at 1
 end for
-// bring more_salt to 8 bits and scramble bits
+// bring more_salt to 8 bits and scramble bits up a bit
 more_salt = bitwise("<<", more_salt, 1) + round(rnd(more_salt+date[2].val))
-salt_mask = bitwise("<<", more_salt, 8) + more_salt
-more_salt = bitwise("^", salt_mask, rnd(more_salt))
+more_salt = bitwise("^", more_salt, round(rnd(more_salt)*(2^8-1)))
+
+//NEED TO CHANGE THIS to fit within range of allowed characters for char() and passing from encode to decode function
 more_salt = char(more_salt) //convert to single character
 
 login_token = secret.pass + secret.salt + more_salt
