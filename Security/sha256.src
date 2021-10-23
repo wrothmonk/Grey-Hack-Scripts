@@ -146,8 +146,8 @@ sha256 = function(password)
       temp2 = bit.add(S0, maj)
       for k in range(7)
         if k > 0 then V[k] = V[k-1]
-        if k == 4 then V[k] = bit.add(V[k-1] + temp1)
-        if k == 0 then V[k] = bit.add(temp1 + temp2)
+        if k == 4 then V[k] = bit.add(V[k-1], temp1)
+        if k == 0 then V[k] = bit.add(temp1, temp2)
       end for
     end for
 
