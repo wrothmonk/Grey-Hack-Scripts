@@ -130,7 +130,7 @@ Encode = function(password)
 
         for i in range(16,63)
           s0 = bit.xor_list([bit.rot_r(w[i-15],7), bit.rot_r(w[i-15],18), bit.shift_r(w[i-15], 3)])
-          s1 = bit.xor_list([bit.rot_r(w[i-2], 17, bit.rot_r(w[i-2], 19)), bit.shift_r(w[i-2],10)])
+          s1 = bit.xor_list([bit.rot_r(w[i-2], 17), bit.rot_r(w[i-2], 19), bit.shift_r(w[i-2],10)])
           w[i] = bit.sum([w[i-16], s0, w[i-7], s1])
         end for
 
@@ -142,10 +142,10 @@ Encode = function(password)
 
         for i in range(0, 63)
           S1 = bit.xor_list([bit.rot_r(V[4], 6), bit.rot_r(V[4], 11), bit.rot_r(V[4], 25)])
-          ch = xor(bit.b_and(V[4], V[5]), bit.b_and(bit.b_not(e), g))
-          temp1 = bit.sum(V[7], S1, ch, K[i], w[i])
+          ch = bit.xor(bit.b_and(V[4], V[5]), bit.b_and(bit.b_not(V[4]), V[6]))
+          temp1 = bit.sum([V[7], S1, ch, K[i], w[i]])
           S0 = bit.xor_list([bit.rot_r(V[0], 2), bit.rot_r(V[0], 13), bit.rot_r(V[0], 22)])
-          maj = bit.xor_list([bit.b_and(V[0], V[1]), bit.b_and(V[0], V[2]), bit.b_and(V[1], V[2]]))
+          maj = bit.xor_list([bit.b_and(V[0], V[1]), bit.b_and(V[0], V[2]), bit.b_and(V[1], V[2])])
           temp2 = bit.add(S0, maj)
           for k in range(7)
             if k > 0 then V[k] = V[k-1]
