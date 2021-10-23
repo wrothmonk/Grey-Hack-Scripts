@@ -6,54 +6,60 @@ Encode = function(password)
     K = [1116352408, 1899447441, -1245643825, -373957723, 961987163, 1508970993, -1841331548, -1424204075, -670586216, 310598401, 607225278, 1426881987, 1925078388, -2132889090, -1680079193, -1046744716, -459576895, -272742522, 264347078, 604807628, 770255983, 1249150122, 1555081692, 1996064986, -1740746414, -1473132947, -1341970488, -1084653625, -958395405, -710438585, 113926993, 338241895, 666307205, 773529912, 1294757372, 1396182291, 1695183700, 1986661051, -2117940946, -1838011259, -1564481375, -1474664885, -1035236496, -949202525, -778901479, -694614492, -200395387, 275423344, 430227734, 506948616, 659060556, 883997877, 958139571, 1322822218, 1537002063, 1747873779, 1955562222, 2024104815, -2067236844, -1933114872, -1866530822, -1538233109, -1090935817, -965641998]
 
     //operators
-    u_sign = function(x)
+    bit = {}
+
+    bit.unsigned = function(x)
       if x < 0 then return x + 2^32
       return x
     end function
 
-    sign = function(x)
+    bit.signed = function(x)
       if x > 2^31-1 then return x-2^32
       return x
     end function
 
-    add = function(x, y)
-      return sign(u_sign(x) + u_sign(y) % 2^32)
+    bit.add = function(x, y)
+      return bit.signed((bit.unsigned(x) + bit.unsigned(y)) % 2^32 )
     end function
 
-    mult_add = function(val_list)
+    bit.sum = function(val_list)
       total = 0
       for val in val_list
-        total = add(total, val)
+        total = bit.add(total, val)
       end for
       return total
     end function
 
-    r_shift = function(x, y)
-      return bitwise(">>>", x, y)
+    bit.shift_r = function(val, amt)
+      return bitwise(">>>", val, amt)
     end function
 
-    xor = function(x, y)
+    bit.shift_l = function(val, amt)
+      return bitwise("<<", val, amt)
+    end function
+
+    bit.xor = function(x, y)
       return bitwise("^", x, y)
     end function
 
-    mult_xor = function(val_list)
-      final = [val_list[0]]
+    bit.xor_list = function(val_list)
+      final = val_list[0]
       for i in range(1, val_list.len-1)
-        final = xor(final, val_list[i])
+        final = bit.xor(final, val_list[i])
       end for
       return final
     end function
 
-    b_and = function(x, y)
+    bit.b_and = function(x, y)
       return bitwise("&", x, y)
     end function
 
-    b_not = function(x)
-      return xor(x, -1)
+    bit.b_not = function(x)
+      return bit.xor(x, -1)
     end function
 
-    r_rot = function(val, iter)
-      return bitwise("<<", u_sign(val) % 2^iter, (32-iter)) + r_shift(val, iter)
+    bit.rot_r = function(val, amt)
+      return bit.shift_l(val, (32-amt)) + bit.shift_r(val, amt)
     end function
 
     //main execution
@@ -69,9 +75,9 @@ Encode = function(password)
       end for
 
       for i in range(16,63)
-        s0 = mult_xor(r_rot(w[i-15],7), r_rot(w[i-15],18), r_shift(w[i-15], 3))
-        s1 = mult_xor(r_rot(w[i-2], 17, r_rot(w[i-2], 19)), r_shift(w[i-2],10))
-        w[i] = mult_add(w[i-16], s0, w[i-7], s1)
+        s0 = bit.xor_list([bit.rot_r(w[i-15],7), bit.rot_r(w[i-15],18), bit.shift_r(w[i-15], 3)])
+        s1 = bit.xor_list([bit.rot_r(w[i-2], 17, bit.rot_r(w[i-2], 19)), bit.shift_r(w[i-2],10)])
+        w[i] = bit.sum([w[i-16], s0, w[i-7], s1])
       end for
 
       //Compression
@@ -80,26 +86,22 @@ Encode = function(password)
         V.push(val)
       end for
 
-      V = {"a":H[0],"b":H[1],"c":H[2],"d":H[3],"e":H[4],"f":H[5],"g":H[6],"h":H[7]}
       for i in range(0, 63)
-        S1 = mult_xor(r_rot(V[4], 6), r_rot(V[4], 11), r_rot(V[4], 25))
-        ch = xor(b_and(V[4], V[5]), b_and(b_not(e), g))
-        temp1 = mult_add(V[7], S1, ch, K[i], w[i])
-        S0 = mult_xor(r_rot(V[0], 2), r_rot(V[0], 13), r_rot(V[0], 22))
-        maj = mult_xor(b_and(V[0], V[1]), b_and(V[0], V[2]), b_and(V[1], V[2]))
-        temp2 = add(S0, maj)
-        V[7] = V[6]
-        V[6] = V[5]
-        V[5] = V[4]
-        V[4] = V[3] + temp1
-        V[3] = V[2]
-        V[2] = V[1]
-        V[1] = V[0]
-        V[0] = temp1 + temp2
+        S1 = bit.xor_list([bit.rot_r(V[4], 6), bit.rot_r(V[4], 11), bit.rot_r(V[4], 25)])
+        ch = xor(bit.b_and(V[4], V[5]), bit.b_and(bit.b_not(e), g))
+        temp1 = bit.sum(V[7], S1, ch, K[i], w[i])
+        S0 = bit.xor_list([bit.rot_r(V[0], 2), bit.rot_r(V[0], 13), bit.rot_r(V[0], 22)])
+        maj = bit.xor_list([bit.b_and(V[0], V[1]), bit.b_and(V[0], V[2]), bit.b_and(V[1], V[2]]))
+        temp2 = bit.add(S0, maj)
+        for k in range(7)
+          if k > 0 then V[k] = V[k-1]
+          if k == 4 then V[k] = V[k-1] + temp1
+          if k == 0 then V[k] = temp1 + temp2
+        end for
       end for
 
-      for i in range(6)
-        H[i] = add(H[i], V[i])
+      for i in range(7)
+        H[i] = bit.add(H[i], V[i])
       end for
 
     end for
