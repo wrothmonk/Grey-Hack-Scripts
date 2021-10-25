@@ -1,18 +1,30 @@
 //Program for ssh-ing to a server set up with the bundled encode/decode.src
 
-secret = {"user":"","pass":[],"ip":"","port":-1,"salt":[]} //connection info, set at compile
+//connection info, set at compile
+secret = {"user":"","pass":"","ip":"","port":22,"salt":""}
 
-conv_val_list = function(char_vals)
-  output = ""
-  for val in char_vals
-    output = output + char(val)
+HEX = {} //hexadecimal conversion lookup table
+for i in range(15)
+  if i > 9 then //letters
+    letter = char(i + 87)
+    HEX[letter] = i
+    HEX[i] = letter
+  else //numbers
+    HEX[str(i)] = i
+    HEX[i] = str(i)
+  end if
+end for
+
+to_hex = function(val, length)
+  if val < 0 then val = val + 2^32
+  output = []
+  for i in range(length-1)
+    output.push(HEX[val%16])
+    val = floor(val/16)
   end for
-  return output
+  output.reverse
+  return output.join("")
 end function
-
-//convert pass and salt to single string
-secret.pass = conv_val_list(secret.pass)
-secret.salt = conv_val_list(secret.salt)
 
 //calculate extra salt based on time of run
 date = current_date
@@ -22,12 +34,15 @@ more_salt = time[0].val + time[1].val //hour + minutes
 for i in date[:2] //month and day
   more_salt = more_salt + i.val - 1 //-1 to allow adding of zero, since day/months start at 1
 end for
-// bring more_salt to 8 bits and scramble bits up a bit
-more_salt = bitwise("<<", more_salt, 1) + round(rnd(more_salt+date[2].val))
-more_salt = bitwise("^", more_salt, round(rnd(more_salt)*(2^8-1)))
 
-//NEED TO CHANGE THIS to fit within range of allowed characters for char() and passing from encode to decode function
-more_salt = char(more_salt) //convert to single character
+salt_val = 0
+for c in secret.salt
+  salt_val = salt_val + HEX[c]
+end for
+// bring more_salt to 8 bits and scramble bits up a bit
+more_salt = bitwise("<<", more_salt, 1) + round(rnd(salt_val+date[2].val))
+more_salt = bitwise("^", more_salt, round(rnd(more_salt)*(2^8-1)))
+more_salt = to_hex(more_salt, 2)
 
 login_token = secret.pass + secret.salt + more_salt
 
