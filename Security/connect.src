@@ -1,0 +1,55 @@
+//Program for ssh-ing to a server set up with the bundled encode/decode.src
+
+//connection info, set at compile
+secret = {"user":"","pass":"","ip":"","port":22,"salt":""}
+
+HEX = {} //hexadecimal conversion lookup table
+for i in range(15)
+  if i > 9 then //letters
+    letter = char(i + 87)
+    HEX[letter] = i
+    HEX[i] = letter
+  else //numbers
+    HEX[str(i)] = i
+    HEX[i] = str(i)
+  end if
+end for
+
+to_hex = function(val, length)
+  if val < 0 then val = val + 2^32
+  output = []
+  for i in range(length-1)
+    output.push(HEX[val%16])
+    val = floor(val/16)
+  end for
+  output.reverse
+  return output.join("")
+end function
+
+//calculate extra salt based on time of run
+date = current_date
+time = date[-5:].split(":") //get hours & minutes
+date = date[:-6].split("-") //get day, month, & year
+more_salt = time[0].val + time[1].val //hour + minutes
+for i in date[:2] //month and day
+  more_salt = more_salt + i.val - 1 //-1 to allow adding of zero, since day/months start at 1
+end for
+
+salt_val = 0
+for c in secret.salt
+  salt_val = salt_val + HEX[c]
+end for
+// bring more_salt to 8 bits and scramble bits up a bit
+more_salt = bitwise("<<", more_salt, 1) + round(rnd(salt_val+date[2].val))
+more_salt = bitwise("^", more_salt, round(rnd(more_salt)*(2^8-1)))
+more_salt = to_hex(more_salt, 2)
+
+login_token = secret.pass + secret.salt + more_salt
+
+//Connect
+connection = get_shell.connect_service(secret.ip, secret.port, secret.user, login_token)
+if typeof(connection) != "shell" then
+  exit("<color=red>Error: " + str(connection))
+else
+  connection.start_terminal
+end if

@@ -1,0 +1,48 @@
+import MetaLib
+import FS
+
+T_COL = {"null":"#FF0000>","file":"#FF8800>","computer":"#FFFF00>","shell":"#00FF00>"}
+L_TEXT = ["NO_ACCESS", "RESTRICTED", "USER", "ROOT"]
+L_COL = ["#FF0000>", "#FF8800>", "#FFFF00>", "#00FF00>"]
+targetLib = new MetaLib
+
+if params.len == 2 then
+	targetLib.get_lib(params[0], params[1])
+else if params.len == 1 then
+	targetLib.get_lib(params[0])
+else
+	exit("Incorrect number of parameters")
+end if
+
+vulns = targetLib.get_vulns()
+print("Found " + vulns.len + " vulnerabilities")
+targInfo = {"type":false, "level":false}
+results = []
+for vulnPair in vulns
+	print("-"*65)
+	info = new targInfo
+	info.memAddress = vulnPair.memAddress
+	info.unsecValue = vulnPair.unsecValue
+	print(vulnPair.memAddress + " " + vulnPair.unsecValue)
+	result = targetLib.overflow(vulnPair.memAddress, vulnPair.unsecValue)
+	info.type = typeof(result)
+	print("Result: <color=" + T_COL[info.type] + info.type)
+	if info.type != "null" then
+		targFS = new FS
+		targFS.init(result)
+		info.level = targFS.level
+	end if
+	results.push(info)
+end for
+
+out_text = ""
+
+for res in results
+		out_text = out_text + res.memAddress + " " + res.unsecValue + " "
+		out_text = out_text + "<color=" + T_COL[res.type] + " " + res.type + " </color> "
+		out_text = out_text + "<color=" + L_COL[res.level] + " " + L_TEXT[res.level] + " </color> \n"
+end for
+out_text = format_columns(out_text)
+out_text = out_text.replace(char(160) + "<", "<").replace(">" + char(160), ">")
+print("-"*out_text.split("\n")[0].len)
+print(out_text)
