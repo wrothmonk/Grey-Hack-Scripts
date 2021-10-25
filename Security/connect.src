@@ -1,7 +1,7 @@
 //Program for ssh-ing to a server set up with the bundled encode/decode.src
 
 //connection info, set at compile
-secret = {"user":"","pass":"","ip":"","port":22,"salt":""}
+secret = {"user":"","ip":"","port":22,"pass":"","salt":""}
 
 HEX = {} //hexadecimal conversion lookup table
 for i in range(15)
@@ -40,7 +40,7 @@ for c in secret.salt
   salt_val = salt_val + HEX[c]
 end for
 // bring more_salt to 8 bits and scramble bits up a bit
-more_salt = bitwise("<<", more_salt, 1) + round(rnd(salt_val+date[2].val))
+more_salt = bitwise("<<", more_salt, 1) + round(rnd(salt_val*date[2].val))
 more_salt = bitwise("^", more_salt, round(rnd(more_salt)*(2^8-1)))
 more_salt = to_hex(more_salt, 2)
 

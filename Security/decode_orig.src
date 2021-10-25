@@ -1,5 +1,5 @@
 Decode = function(password)
-  secret = {"pass":"","salt":"","real_pass":""}
+  secret = {"real_pass":"","pass":"","salt":""}
 
   HEX = {} //hexadecimal conversion lookup table
   for i in range(15)
@@ -184,7 +184,7 @@ Decode = function(password)
     salt_val = salt_val + HEX[c]
   end for
   // bring more_salt to 8 bits and scramble bits up a bit
-  more_salt = bitwise("<<", more_salt, 1) + round(rnd(salt_val+date[2].val))
+  more_salt = bitwise("<<", more_salt, 1) + round(rnd(salt_val*date[2].val))
   more_salt = bitwise("^", more_salt, round(rnd(more_salt)*(2^8-1)))
   more_salt = bit.to_hex(more_salt, 2)
 
