@@ -188,7 +188,11 @@ Decode = function(password)
   more_salt = bitwise("^", more_salt, round(rnd(more_salt)*(2^8-1)))
   more_salt = bit.to_hex(more_salt, 2)
 
-  login_token = secret.pass + secret.salt + more_salt //expected login token
+  login_token = ""
+  for c in secret.pass
+    login_token = login_token + bit.to_hex(c.code, 2)
+  end for
+  login_token = login_token + secret.salt + more_salt //expected login token
 
   hash = sha256(login_token)
   if password == hash then

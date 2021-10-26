@@ -1,7 +1,7 @@
 //Program for ssh-ing to a server set up with the bundled encode/decode.src
-
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: connect [password]</b>")
 //connection info, set at compile
-secret = {"user":"","ip":"","port":22,"pass":"","salt":""}
+secret = {"user":"","ip":"","port":22,"salt":""}
 
 HEX = {} //hexadecimal conversion lookup table
 for i in range(15)
@@ -44,7 +44,11 @@ more_salt = bitwise("<<", more_salt, 1) + round(rnd(salt_val*date[2].val))
 more_salt = bitwise("^", more_salt, round(rnd(more_salt)*(2^8-1)))
 more_salt = to_hex(more_salt, 2)
 
-login_token = secret.pass + secret.salt + more_salt
+login_token = ""
+for c in params[0]
+  login_token = login_token + to_hex(c.code, 2)
+end for
+login_token = login_token + secret.salt + more_salt
 
 //Connect
 connection = get_shell.connect_service(secret.ip, secret.port, secret.user, login_token)
