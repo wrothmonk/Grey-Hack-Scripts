@@ -13,16 +13,11 @@ Decode = function(password)
     end if
   end for
 
-  //operators
+  //extended bitwise operators
   bit = {}
 
   bit.unsigned = function(x)
     if x < 0 then return x + 2^32
-    return x
-  end function
-
-  bit.signed = function(x)
-    if x > 2^31-1 then return x-2^32
     return x
   end function
 
@@ -35,6 +30,11 @@ Decode = function(password)
     end for
     output.reverse
     return output.join("")
+  end function
+
+  bit.signed = function(x)
+    if x > 2^31-1 then return x-2^32
+    return x
   end function
 
   bit.add = function(x, y)
@@ -170,29 +170,32 @@ Decode = function(password)
     return output
   end function
 
-  //calculate extra salt based on time of run
-  date = current_date
-  time = date[-5:].split(":") //get hours & minutes
-  date = date[:-6].split("-") //get day, month, & year
-  more_salt = time[0].val + time[1].val //hour + minutes
-  for i in date[:2] //month and day
-    more_salt = more_salt + i.val - 1 //-1 to allow adding of zero, since day/months start at 1
-  end for
+  //function that generates login token based on passwor, salt, and current date
+  login_token = function()
+    //calculate extra salt based on time of run
+    date = current_date
+    time = date[-5:].split(":") //get hours & minutes
+    date = date[:-6].split("-") //get day, month, & year
+    more_salt = time[0].val + time[1].val //hour + minutes
+    for i in date[:2] //month and day
+      more_salt = more_salt + i.val - 1 //-1 to allow adding of zero, since day/months start at 1
+    end for
 
-  salt_val = 0
-  for c in secret.salt
-    salt_val = salt_val + HEX[c]
-  end for
-  // bring more_salt to 8 bits and scramble bits up a bit
-  more_salt = bitwise("<<", more_salt, 1) + round(rnd(salt_val*date[2].val))
-  more_salt = bitwise("^", more_salt, round(rnd(more_salt)*(2^8-1)))
-  more_salt = bit.to_hex(more_salt, 2)
-
-  login_token = ""
-  for c in secret.pass
-    login_token = login_token + bit.to_hex(c.code, 2)
-  end for
-  login_token = login_token + secret.salt + more_salt //expected login token
+    salt_val = 0
+    for c in secret.salt
+      salt_val = salt_val + HEX[c]
+    end for
+    // bring more_salt to 8 bits and scramble bits up a bit
+    more_salt = bitwise("<<", more_salt, 1) + round(rnd(salt_val*date[2].val))
+    more_salt = bitwise("^", more_salt, round(rnd(more_salt)*(2^8-1)))
+    more_salt = bit.to_hex(more_salt, 2)
+    token = ""
+    for c in params[0]
+      token = token + bit.to_hex(c.code, 2)
+    end for
+    token = token + secret.salt + more_salt
+    return token
+  end function
 
   hash = sha256(login_token)
   if password == hash then
